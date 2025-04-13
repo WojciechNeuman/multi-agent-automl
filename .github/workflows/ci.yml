@@ -19,24 +19,15 @@ jobs:
         with:
           auto-activate-base: false
 
-      - name: Initialize Conda
-        run: |
-          conda init bash  # Initialize Conda for bash shell
-
       - name: Create and activate conda environment
         run: |
           conda env create -f environment.yml  # Create environment from environment.yml
-          source ~/.bashrc  # Re-load shell configuration to ensure Conda is initialized
-          conda activate multi_agent_automl  # Activate the environment
-          conda info --envs  # Verify the environment is activated correctly
 
       - name: Verify pytest installation
         run: |
-          source ~/.bashrc  # Ensure conda is initialized again
-          conda activate multi_agent_automl  # Re-activate the environment
-          which pytest  # Check if pytest is available
-          pytest --version  # Check the version of pytest
+          conda run -n multi_agent_automl which pytest  # Verify pytest is installed
+          conda run -n multi_agent_automl pytest --version  # Verify pytest version
 
       - name: Run tests
         run: |
-          pytest tests/ --maxfail=1 --disable-warnings -q
+          conda run -n multi_agent_automl pytest tests/ --maxfail=1 --disable-warnings -q  # Run the tests
