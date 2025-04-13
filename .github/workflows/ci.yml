@@ -24,7 +24,7 @@ jobs:
       - name: Create and activate conda environment
         run: |
           conda env create -f environment.yml
-          conda activate multi_agent_automl
+          exec bash --login -c "conda activate multi_agent_automl && echo Environment activated"
 
       - name: Run tests
         run: |
