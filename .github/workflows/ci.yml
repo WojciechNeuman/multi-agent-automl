@@ -4,9 +4,7 @@ on:
   push:
     branches:
       - "*"
-  pull_request:
-    branches:
-      - "*"
+
 
 jobs:
   test:
@@ -34,7 +32,10 @@ jobs:
 
       - name: Verify pytest installation
         run: |
-          pytest --version  # Check if pytest is installed and available
+          source ~/.bashrc  # Ensure conda is initialized again
+          conda activate multi_agent_automl  # Re-activate the environment
+          which pytest  # Check if pytest is available
+          pytest --version  # Check the version of pytest
 
       - name: Run tests
         run: |
