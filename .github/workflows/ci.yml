@@ -20,7 +20,6 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2
         with:
           auto-activate-base: false
-          conda-version: "latest"
 
       - name: Create and activate conda environment
         run: |
