@@ -4,9 +4,7 @@ on:
   push:
     branches:
       - "*"
-  pull_request:
-    branches:
-      - "*"
+
 
 jobs:
   test:
@@ -20,13 +18,16 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2
         with:
           auto-activate-base: false
-          conda-version: "latest"
 
       - name: Create and activate conda environment
         run: |
-          conda env create -f environment.yml
-          conda activate multi_agent_automl
+          conda env create -f environment.yml  # Create environment from environment.yml
+
+      - name: Verify pytest installation
+        run: |
+          conda run -n multi_agent_automl which pytest  # Verify pytest is installed
+          conda run -n multi_agent_automl pytest --version  # Verify pytest version
 
       - name: Run tests
         run: |
-          pytest tests/ --maxfail=1 --disable-warnings -q
+          conda run -n multi_agent_automl pytest tests/ --maxfail=1 --disable-warnings -q  # Run the tests
