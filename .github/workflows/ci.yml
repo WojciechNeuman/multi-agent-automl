@@ -1,0 +1,32 @@
+name: CI Workflow
+
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - "*"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Set up Conda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-activate-base: false
+          conda-version: "latest"
+
+      - name: Create and activate conda environment
+        run: |
+          conda env create -f environment.yml
+          conda activate multi_agent_automl
+
+      - name: Run tests
+        run: |
+          pytest tests/ --maxfail=1 --disable-warnings -q
