@@ -176,5 +176,6 @@ cython_debug/
 # MacOS Finder
 .DS_Store
 
-# Ignore local datasets
-datasets/
+# Ignore everything in datasets except .gitkeep
+datasets/*
+!datasets/.gitkeep
