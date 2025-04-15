@@ -22,6 +22,9 @@ env:
 update:
 	conda env update --file $(ENV_FILE) --prune
 
+build:
+	conda env export --name $(ENV_NAME) > $(ENV_FILE)
+
 # Command to activate the environment (just prints it)
 activate:
 	@echo "To activate the environment, run:"
