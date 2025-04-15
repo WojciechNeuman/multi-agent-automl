@@ -18,3 +18,7 @@ dependencies:
       - openai
       - pytest
       - tqdm
+      - loguru
+      - instructor
+      - python_dotenv
+      
