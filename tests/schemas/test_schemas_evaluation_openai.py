@@ -4,7 +4,7 @@ from schemas.evaluation import EvaluationRequest, EvaluationResponse
 from schemas.shared import Metadata
 import sys, os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 class TestEvaluationAgentWithMock(TestCase):
     def setUp(self):

@@ -1,3 +1,8 @@
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+
 from unittest import TestCase
 from pydantic import ValidationError
 from schemas.evaluation import EvaluationRequest, EvaluationResponse
