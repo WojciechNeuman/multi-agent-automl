@@ -59,7 +59,7 @@ class LLMConfig(BaseModel):
         default=0.2, ge=0, le=2, description="Sampling temperature."
     )
     max_tokens: int = Field(
-        default=1024, ge=128, le=4096, description="Maximum tokens in the response."
+        default=1024, ge=128, le=8192, description="Maximum tokens in the response."
     )
 
 

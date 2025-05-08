@@ -5,6 +5,7 @@ from typing import Dict
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
+from loguru import logger
 
 from schemas.feature import FeatureOverview
 
@@ -24,7 +25,6 @@ def _quick_corr(series: pd.Series, target: pd.Series) -> float | None:
         pass
     return None
 
-
 def compute_basic_stats(
     df: pd.DataFrame, target_name: str | None = None
 ) -> Dict[str, FeatureOverview]:
@@ -32,6 +32,7 @@ def compute_basic_stats(
     Extracts rich feature statistics for LLM prompt building.
     Handles numeric, categorical, text, and datetime columns.
     """
+    logger.info(f"Computing basic stats for {df.shape[1]} features")
     stats = {}
     target = df[target_name] if target_name in df.columns else None
 
@@ -94,7 +95,9 @@ def compute_basic_stats(
             if corr is not None:
                 kw["corr_target"] = corr
 
-
         stats[col] = FeatureOverview(**kw)
+        logger.debug(f"Stats for {col}: {kw}")
 
+    logger.info(f"Basic stats computed for {len(stats)} features")
     return stats
+
