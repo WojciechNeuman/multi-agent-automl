@@ -168,7 +168,8 @@ def _call_llm(
             max_tokens=req.llm_config.max_tokens,
             messages=[{"role": "system", "content": _SYSTEM_ROLE},
                       {"role": "user", "content": prompt}],
-            response_model=FeatureSelectionResponse
+            response_model=FeatureSelectionResponse,
+            max_retries=3
         )
         return response
     except ValidationError as e:
