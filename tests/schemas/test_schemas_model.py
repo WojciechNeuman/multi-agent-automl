@@ -1,6 +1,6 @@
 from unittest import TestCase
 from pydantic import ValidationError
-from schemas.model import ModelSelectionRequest, ModelSelectionResponse
+from schemas.model_selection import ModelSelectionRequest, ModelSelectionResponse
 from schemas.shared import Metadata
 import pandas as pd
 
