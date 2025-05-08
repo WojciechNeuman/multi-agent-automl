@@ -21,4 +21,5 @@ dependencies:
       - loguru
       - instructor
       - python_dotenv
+      - skops
       
