@@ -152,27 +152,31 @@ def _build_prompt(
 
     return "\n".join(lines)
 
-
-
-def _call_llm(prompt: str, cfg) -> str:
-    client = instructor.from_openai(OpenAI(api_key=API_KEY))    
-    rsp = client.chat.completions.create(
-        model=cfg.model,
-        temperature=cfg.temperature,
-        max_tokens=cfg.max_tokens,
-        messages=[{"role": "system", "content": _SYSTEM_ROLE},
-                  {"role": "user", "content": prompt}],
-        response_model=FeatureSelectionResponse
-    )
-    return rsp
-
-
-def _parse_llm(raw: str) -> list[FeatureSpec]:
+def _call_llm(
+    req: FeatureSelectionRequest, prompt: str
+) -> FeatureSelectionResponse:
+    """
+    Call the LLM with the given prompt and return the response.
+    The response is expected to be a JSON string that can be parsed into
+    FeatureSelectionResponse.
+    """
     try:
-        return [FeatureSpec(**d) for d in json.loads(raw)]
-    except (json.JSONDecodeError, ValidationError) as err:  # noqa: TRY003
-        raise ValueError("LLM response could not be parsed into FeatureSpec list.") from err
-
+        client = instructor.from_openai(OpenAI(api_key=API_KEY))
+        response = client.chat.completions.create(
+            model=req.llm_config.model,
+            temperature=req.llm_config.temperature,
+            max_tokens=req.llm_config.max_tokens,
+            messages=[{"role": "system", "content": _SYSTEM_ROLE},
+                      {"role": "user", "content": prompt}],
+            response_model=FeatureSelectionResponse
+        )
+        return response
+    except ValidationError as e:
+        logger.error(f"LLM response validation error: {e}")
+        raise e
+    except Exception as e:
+        logger.error(f"LLM call failed: {e}")
+        raise e
 
 # --------------------------------------------------------------------------- #
 # Public API                                                                   #
@@ -204,21 +208,9 @@ def run_feature_agent(req: FeatureSelectionRequest) -> FeatureSelectionResponse:
     logger.info(f"Prompt length: {len(prompt)} characters")
     logger.debug(f"Prompt content:\n{prompt}")
 
-    try:
-        client = instructor.from_openai(OpenAI(api_key=API_KEY))
-        response = client.chat.completions.create(
-            model=req.llm_config.model,
-            temperature=req.llm_config.temperature,
-            max_tokens=req.llm_config.max_tokens,
-            messages=[{"role": "system", "content": _SYSTEM_ROLE},
-                      {"role": "user", "content": prompt}],
-            response_model=FeatureSelectionResponse
-        )
-        logger.info("LLM response received successfully")
-        logger.debug(f"LLM response:\n{response}")
-    except Exception as e:
-        logger.exception("LLM call failed")
-        raise
+    response = _call_llm(req, prompt)
+    logger.info("LLM response received successfully")
+    logger.debug(f"LLM response:\n{response}")
 
     # 5. Build pipeline (simple baseline)
     try:
@@ -235,7 +227,6 @@ def run_feature_agent(req: FeatureSelectionRequest) -> FeatureSelectionResponse:
         preprocessing_code=pipe_blob,
         reasoning=response.reasoning,
     )
-
 
 # --------------------------------------------------------------------------- #
 # Helpers – pipeline, reasoning                                               #
