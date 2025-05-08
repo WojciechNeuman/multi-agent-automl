@@ -1,99 +1,115 @@
-from typing import List, Optional, Literal, Dict, Any
+from __future__ import annotations
+
+from typing import Any, Dict, List, Literal, Optional
+
 from pydantic import BaseModel, Field
-from .shared import Metadata
 
-class FeatureSelectionRequest(BaseModel):
-    metadata: Metadata = Field(
-        ..., description="Metadata including dataset name, task type, and target column."
+class Metadata(BaseModel):
+    """Minimal information required to identify the dataset and task."""
+
+    dataset_name: str = Field(..., description="Human-readable dataset identifier.")
+    problem_type: Literal["classification", "regression"] = Field(
+        ..., description="Down-stream ML problem type."
     )
-    data: dict = Field(
-        ..., description="Serialized input dataset (e.g., result of DataFrame.to_dict())."
+    target_column: str = Field(..., description="Name of the target/label column.")
+    additional_notes: Optional[str] = Field(
+        None, description="Optional user-supplied context or constraints."
     )
 
-class FeatureSelectionResponse(BaseModel):
-    selected_features: List[str] = Field(
-        ..., description="List of selected feature names deemed most relevant for the task."
-    )
-    reasoning: Optional[str] = Field(
-        None, description="Optional explanation or reasoning behind the feature selection."
-    )
 
 class FeatureOverview(BaseModel):
-    dtype: Literal["numeric", "categorical", "text", "datetime"] = Field(
-        ...,
-        description="Logical data type of the feature after preprocessing."
+    """
+    Compact representation of per-column statistics.
+    Extended with skewness, kurtosis, min/max, and top frequency.
+    """
+
+    dtype: Literal["numeric", "categorical", "text", "datetime"]
+    missing_pct: float
+    cardinality: int
+
+    # Numeric-only
+    mean: Optional[float] = None
+    median: Optional[float] = None
+    std: Optional[float] = None
+    skewness: Optional[float] = None
+    kurtosis: Optional[float] = None
+    min_val: Optional[float] = None
+    max_val: Optional[float] = None
+    corr_target: Optional[float] = None
+
+    # Categorical-only
+    top_freq: Optional[float] = None
+    rare_pct: Optional[float] = None
+
+    # Text-only
+    avg_length: Optional[float] = None
+    lang_detected: Optional[str] = None
+
+    # Date-time only
+    span_days: Optional[int] = None
+
+
+class LLMConfig(BaseModel):
+    """Parameters controlling the underlying chat completion request."""
+
+    model: str = Field(
+        default="gpt-3.5-turbo", description="OpenAI-compatible model name."
     )
-    missing_pct: float = Field(
-        ...,
-        description="Percentage of missing values in the feature."
+    temperature: float = Field(
+        default=0.2, ge=0, le=2, description="Sampling temperature."
     )
-    cardinality: int = Field(
-        ...,
-        description="Number of unique values in the feature."
-    )
-    skewness: Optional[float] = Field(
-        ...,
-        description="Skewness of the feature distribution. (if applicable)"
-    )
-    mean: Optional[float] = Field(
-        ...,
-        description="Mean of the feature values. (if applicable)"
-    )
-    median: Optional[float] = Field(
-        ...,
-        description="Median of the feature values. (if applicable)"
-    )
-    std: Optional[float] = Field(
-        ...,
-        description="Standard deviation of the feature values. (if applicable)"
+    max_tokens: int = Field(
+        default=1024, ge=128, le=4096, description="Maximum tokens in the response."
     )
 
+
 class FeatureSelectionRequest(BaseModel):
+    """Input consumed by FeatureAgent."""
+
     metadata: Metadata
     basic_stats: Dict[str, FeatureOverview]
     data_sample: Dict[str, list] = Field(
         ...,
-        description="Sample of the input dataset (e.g., result of DataFrame.head().to_dict())."
+        description="Small row sample (e.g. df.head().to_dict()) – never the full dataset.",
+    )
+    selection_goal: str = Field(
+        default="maximise predictive power with the fewest features",
+        description="Natural-language description of what the LLM should optimise for.",
+    )
+    max_features: int = Field(
+        default=30,
+        ge=1,
+        description="Upper bound on the number of features the LLM may return.",
+    )
+    llm_config: LLMConfig = Field(
+        default_factory=LLMConfig, description="Parameters used for the chat call."
     )
 
+
 class FeatureSpec(BaseModel):
-    name: str = Field(
-        ...,
-        description="Original column name or alias of the feature as it will appear in the ML pipeline.",
-    )
-    dtype: Literal["numeric", "categorical", "text", "datetime"]= Field(
-        ...,
-        description="Logical data type after preprocessing (e.g. 'numeric', 'categorical', 'text', 'datetime').",
-    )
-    origin: Literal["raw", "derived"] = Field(
-        ...,
-        description="Indicates whether the feature comes directly from the source dataset ('raw') or was generated during preprocessing ('derived').",
-    )
-    transformer: str = Field(
-        ...,
-        description="Named step or dotted-path reference to the transformer inside the preprocessing Pipeline that produces this feature.",
-    )
-    params: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Dictionary of key hyper-parameters for the transformer/generator that produced the feature.",
-    )
-    importance: Optional[float] = Field(
-        None,
-        description="Optional numerical estimate of the feature's predictive importance (e.g. mutual information, gain, permutation score).",
-    )
+    """Full lineage of a single feature after selection / engineering."""
+
+    name: str
+    dtype: Literal["numeric", "categorical", "text", "datetime"]
+    origin: Literal["raw", "derived"]
+    transformer: str
+    params: Dict[str, Any] = Field(default_factory=dict)
+    importance: Optional[float] = None  # filled later by EvaluationAgent
 
 
 class FeatureSelectionResponse(BaseModel):
-    selected_features: List[FeatureSpec] = Field(
-        ...,
-        description="Ordered collection of FeatureSpec objects describing the final feature set provided to ModelAgent.",
-    )
+    """Output returned by FeatureAgent."""
+
+    selected_features: List[FeatureSpec]
     preprocessing_code: str = Field(
         ...,
-        description="Base64-encoded or UTF-8 string produced by `skops.io.dumps` that reconstructs the preprocessing sklearn.Pipeline when loaded.",
+        description=(
+            "UTF-8 / Base64 string produced by `skops.io.dumps`,"
+            " sufficient to rebuild the sklearn.Pipeline."
+        ),
     )
     reasoning: str = Field(
         ...,
-        description="Short natural-language justification (≤ 100 words) summarising why these features were selected.",
-        max_length=600,
+        max_length=500,
+        description="≤500-word rationale summarised from the LLM answer.",
     )
