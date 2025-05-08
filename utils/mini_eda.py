@@ -1,7 +1,3 @@
-"""
-Extended Mini-EDA that fills the new FeatureOverview fields.
-Runs in ~1–2 s for ≈20 k rows / 50 cols on a laptop.
-"""
 from __future__ import annotations
 
 from typing import Dict
@@ -85,9 +81,6 @@ def compute_basic_stats(
             kw.update(
                 avg_length=float(lengths.mean()),
             )
-            # (Optional) basic language detection
-            # lang = detect_most_common_language(s)
-            # kw["lang_detected"] = lang
 
         # Date-time extensions
         elif dtype == "datetime":
