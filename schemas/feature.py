@@ -1,19 +1,115 @@
-from typing import List, Optional
+from __future__ import annotations
+
+from typing import Any, Dict, List, Literal, Optional
+
 from pydantic import BaseModel, Field
-from .shared import Metadata
+
+class Metadata(BaseModel):
+    """Minimal information required to identify the dataset and task."""
+
+    dataset_name: str = Field(..., description="Human-readable dataset identifier.")
+    problem_type: Literal["classification", "regression"] = Field(
+        ..., description="Down-stream ML problem type."
+    )
+    target_column: str = Field(..., description="Name of the target/label column.")
+    additional_notes: Optional[str] = Field(
+        None, description="Optional user-supplied context or constraints."
+    )
+
+
+class FeatureOverview(BaseModel):
+    """
+    Compact representation of per-column statistics.
+    Extended with skewness, kurtosis, min/max, and top frequency.
+    """
+
+    dtype: Literal["numeric", "categorical", "text", "datetime"]
+    missing_pct: float
+    cardinality: int
+
+    # Numeric-only
+    mean: Optional[float] = None
+    median: Optional[float] = None
+    std: Optional[float] = None
+    skewness: Optional[float] = None
+    kurtosis: Optional[float] = None
+    min_val: Optional[float] = None
+    max_val: Optional[float] = None
+    corr_target: Optional[float] = None
+
+    # Categorical-only
+    top_freq: Optional[float] = None
+    rare_pct: Optional[float] = None
+
+    # Text-only
+    avg_length: Optional[float] = None
+    lang_detected: Optional[str] = None
+
+    # Date-time only
+    span_days: Optional[int] = None
+
+
+class LLMConfig(BaseModel):
+    """Parameters controlling the underlying chat completion request."""
+
+    model: str = Field(
+        default="gpt-3.5-turbo", description="OpenAI-compatible model name."
+    )
+    temperature: float = Field(
+        default=0.2, ge=0, le=2, description="Sampling temperature."
+    )
+    max_tokens: int = Field(
+        default=1024, ge=128, le=8192, description="Maximum tokens in the response."
+    )
+
 
 class FeatureSelectionRequest(BaseModel):
-    metadata: Metadata = Field(
-        ..., description="Metadata including dataset name, task type, and target column."
+    """Input consumed by FeatureAgent."""
+
+    metadata: Metadata
+    basic_stats: Dict[str, FeatureOverview]
+    data_sample: Dict[str, list] = Field(
+        ...,
+        description="Small row sample (e.g. df.head().to_dict()) – never the full dataset.",
     )
-    data: dict = Field(
-        ..., description="Serialized input dataset (e.g., result of DataFrame.to_dict())."
+    selection_goal: str = Field(
+        default="maximise predictive power with the fewest features",
+        description="Natural-language description of what the LLM should optimise for.",
+    )
+    max_features: int = Field(
+        default=30,
+        ge=1,
+        description="Upper bound on the number of features the LLM may return.",
+    )
+    llm_config: LLMConfig = Field(
+        default_factory=LLMConfig, description="Parameters used for the chat call."
     )
 
+
+class FeatureSpec(BaseModel):
+    """Full lineage of a single feature after selection / engineering."""
+
+    name: str
+    dtype: Literal["numeric", "categorical", "text", "datetime"]
+    origin: Literal["raw", "derived"]
+    transformer: str
+    params: Dict[str, Any] = Field(default_factory=dict)
+    importance: Optional[float] = None  # filled later by EvaluationAgent
+
+
 class FeatureSelectionResponse(BaseModel):
-    selected_features: List[str] = Field(
-        ..., description="List of selected feature names deemed most relevant for the task."
+    """Output returned by FeatureAgent."""
+
+    selected_features: List[FeatureSpec]
+    preprocessing_code: str = Field(
+        ...,
+        description=(
+            "UTF-8 / Base64 string produced by `skops.io.dumps`,"
+            " sufficient to rebuild the sklearn.Pipeline."
+        ),
     )
-    reasoning: Optional[str] = Field(
-        None, description="Optional explanation or reasoning behind the feature selection."
+    reasoning: str = Field(
+        ...,
+        max_length=500,
+        description="≤500-word rationale summarised from the LLM answer.",
     )
