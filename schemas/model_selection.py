@@ -1,6 +1,19 @@
+from enum import Enum
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
-from .shared import Metadata
+from schemas.shared import LLMConfig, Metadata
+
+class ModelEnum(Enum):
+    """
+    Enum-like class for model names.
+    This can be extended with more models as needed.
+    """
+    RANDOMFOREST = "RandomForest"
+    LOGISTICREGRESSION = "LogisticRegression"
+    LINEARREGRESSION = "LinearRegression"
+    GRADIENTBOOSTING = "GradientBoosting"
+    SVC = "SVC"
+    KNEIGHBORS = "KNeighbors"
 
 class ModelSelectionRequest(BaseModel):
     metadata: Metadata = Field(
@@ -12,9 +25,12 @@ class ModelSelectionRequest(BaseModel):
     data: dict = Field(
         ..., description="Serialized dataset to be used for model selection and training."
     )
+    llm_config: LLMConfig = Field(
+        default_factory=LLMConfig, description="Parameters used for the chat call."
+    )
 
 class ModelSelectionResponse(BaseModel):
-    model_name: str = Field(
+    model_name: ModelEnum = Field(
         ..., description="The name of the selected ML model (e.g., 'RandomForest', 'XGBoost')."
     )
     hyperparameters: Dict[str, Any] = Field(

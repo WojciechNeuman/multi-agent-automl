@@ -1,6 +1,6 @@
 from unittest import TestCase
 from pydantic import ValidationError
-from schemas.model import ModelSelectionRequest, ModelSelectionResponse
+from schemas.model_selection import ModelEnum, ModelSelectionRequest, ModelSelectionResponse
 from schemas.shared import Metadata
 import pandas as pd
 
@@ -37,12 +37,12 @@ class TestModelSchemas(TestCase):
 
     def test_valid_model_selection_response(self):
         response = ModelSelectionResponse(
-            model_name="RandomForestClassifier",
+            model_name=ModelEnum.RANDOMFOREST,
             hyperparameters={"n_estimators": 100, "max_depth": 5},
             reasoning="Chosen due to good performance on tabular data."
         )
 
-        self.assertEqual(response.model_name, "RandomForestClassifier")
+        self.assertEqual(response.model_name.value, "RandomForest")
         self.assertIn("n_estimators", response.hyperparameters)
 
     def test_invalid_model_selection_response_missing_model_name(self):

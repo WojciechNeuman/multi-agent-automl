@@ -14,3 +14,16 @@ class Metadata(BaseModel):
     additional_notes: Optional[str] = Field(
         None, description="Optional notes or comments about the dataset or task."
     )
+
+class LLMConfig(BaseModel):
+    """Parameters controlling the underlying chat completion request."""
+
+    model: str = Field(
+        default="gpt-3.5-turbo", description="OpenAI-compatible model name."
+    )
+    temperature: float = Field(
+        default=0.2, ge=0, le=2, description="Sampling temperature."
+    )
+    max_tokens: int = Field(
+        default=1024, ge=128, le=8192, description="Maximum tokens in the response."
+    )

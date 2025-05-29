@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
+from schemas.shared import LLMConfig
+
 class Metadata(BaseModel):
     """Minimal information required to identify the dataset and task."""
 
@@ -49,20 +51,6 @@ class FeatureOverview(BaseModel):
     span_days: Optional[int] = None
 
 
-class LLMConfig(BaseModel):
-    """Parameters controlling the underlying chat completion request."""
-
-    model: str = Field(
-        default="gpt-3.5-turbo", description="OpenAI-compatible model name."
-    )
-    temperature: float = Field(
-        default=0.2, ge=0, le=2, description="Sampling temperature."
-    )
-    max_tokens: int = Field(
-        default=1024, ge=128, le=8192, description="Maximum tokens in the response."
-    )
-
-
 class FeatureSelectionRequest(BaseModel):
     """Input consumed by FeatureAgent."""
 
@@ -70,7 +58,7 @@ class FeatureSelectionRequest(BaseModel):
     basic_stats: Dict[str, FeatureOverview]
     data_sample: Dict[str, list] = Field(
         ...,
-        description="Small row sample (e.g. df.head().to_dict()) – never the full dataset.",
+        description="Small row sample (e.g. df.head().to_dict()) - never the full dataset.",
     )
     selection_goal: str = Field(
         default="maximise predictive power with the fewest features",
