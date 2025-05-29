@@ -39,10 +39,3 @@ class ModelSelectionResponse(BaseModel):
     reasoning: Optional[str] = Field(
         None, description="Explanation for why this model and configuration were chosen."
     )
-    # model_selection_code: str = Field(
-    #     ...,
-    #     description=(
-    #         "UTF-8 / Base64 string produced by `skops.io.dumps`,"
-    #         " sufficient to rebuild the sklearn.Pipeline."
-    #     )
-    # )

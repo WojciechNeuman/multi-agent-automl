@@ -7,7 +7,7 @@ import pandas as pd
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
-from schemas.model_selection import ModelSelectionRequest, ModelSelectionResponse
+from schemas.model_selection import ModelEnum, ModelSelectionRequest, ModelSelectionResponse
 from schemas.shared import Metadata
 
 
@@ -32,7 +32,7 @@ class TestModelAgentWithMock(TestCase):
         )
 
         self.mock_response = ModelSelectionResponse(
-            model_name="RandomForestClassifier",
+            model_name="RandomForest",
             hyperparameters={"n_estimators": 100, "max_depth": 5},
             reasoning="Selected for its robustness on tabular data."
         )
@@ -59,7 +59,7 @@ class TestModelAgentWithMock(TestCase):
                 response_model=ModelSelectionResponse
             )
 
-            self.assertEqual(response.model_name, "RandomForestClassifier")
+            self.assertEqual(response.model_name, ModelEnum.RANDOMFOREST)
             self.assertIn("n_estimators", response.hyperparameters)
             self.assertEqual(response.reasoning, "Selected for its robustness on tabular data.")
             mock_create.assert_called_once()
