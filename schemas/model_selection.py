@@ -1,19 +1,7 @@
-from enum import Enum
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from schemas.shared import LLMConfig, Metadata
-
-class ModelEnum(Enum):
-    """
-    Enum-like class for model names.
-    This can be extended with more models as needed.
-    """
-    RANDOMFOREST = "RandomForest"
-    LOGISTICREGRESSION = "LogisticRegression"
-    LINEARREGRESSION = "LinearRegression"
-    GRADIENTBOOSTING = "GradientBoosting"
-    SVC = "SVC"
-    KNEIGHBORS = "KNeighbors"
+from models.model import ModelEnum
 
 class ModelSelectionRequest(BaseModel):
     metadata: Metadata = Field(

@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 
 from schemas.shared import LLMConfig
 
+from models.feature import FeatureSpec
+
 class Metadata(BaseModel):
     """Minimal information required to identify the dataset and task."""
 
@@ -72,18 +74,6 @@ class FeatureSelectionRequest(BaseModel):
     llm_config: LLMConfig = Field(
         default_factory=LLMConfig, description="Parameters used for the chat call."
     )
-
-
-class FeatureSpec(BaseModel):
-    """Full lineage of a single feature after selection / engineering."""
-
-    name: str
-    dtype: Literal["numeric", "categorical", "text", "datetime"]
-    origin: Literal["raw", "derived"]
-    transformer: str
-    params: Dict[str, Any] = Field(default_factory=dict)
-    importance: Optional[float] = None  # filled later by EvaluationAgent
-
 
 class FeatureSelectionResponse(BaseModel):
     """Output returned by FeatureAgent."""
