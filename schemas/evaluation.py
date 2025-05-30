@@ -1,19 +1,21 @@
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Literal
 from .shared import Metadata
+from models.model import ModelEnum
+from models.feature import FeatureSpec
 
 class EvaluationRequest(BaseModel):
     metadata: Metadata = Field(
         ..., description="Metadata about the ML task and dataset."
     )
-    selected_features: List[str] = Field(
-        ..., description="Features used by the trained model."
+    selected_features: List[FeatureSpec] = Field(
+        ..., description="List of features selected for model evaluation."
     )
-    model_name: str = Field(
-        ..., description="Name of the trained model to evaluate."
+    model_name: ModelEnum = Field(
+        ..., description="The name of the selected ML model (e.g., 'RandomForest', 'XGBoost')."
     )
     hyperparameters: Dict[str, Any] = Field(
-        ..., description="Hyperparameters used for the selected model."
+        ..., description="Hyperparameter configuration for the selected model."
     )
 
 class EvaluationResponse(BaseModel):
@@ -26,3 +28,9 @@ class EvaluationResponse(BaseModel):
     visualizations: Optional[Dict[str, str]] = Field(
         None, description="Optional visualizations encoded as base64 images or description strings."
     )
+
+class EvaluationDecision(BaseModel):
+    recommendation: Literal['continue', 'switch_model', 'switch_features', 'stop']
+    reasoning: str = Field(..., max_length=500)
+    confidence: Optional[float] = Field(None, ge=0, le=1)
+    

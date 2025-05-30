@@ -1,0 +1,128 @@
+from __future__ import annotations
+
+from typing import List, Dict, Any
+from pydantic import ValidationError
+import os
+import sys
+import instructor
+from openai import OpenAI
+from dotenv import load_dotenv
+from loguru import logger
+
+from schemas.evaluation import EvaluationRequest, EvaluationDecision
+from models.feature import FeatureSpec
+
+load_dotenv()
+API_KEY = os.getenv("API_KEY")
+
+# Configure loguru (console + rotating file)
+logger.remove()
+logger.add("logs/evaluation_agent.log", rotation="10 MB", retention="7 days", level="DEBUG")
+logger.add(sys.stderr, level="INFO")
+
+_SYSTEM_ROLE = (
+    "You are an advanced AutoML Evaluation Agent. "
+    "You receive the current model's metrics, history of previous results, "
+    "task type (classification or regression), model details, selected features, "
+    "and optimization goal. "
+    "Analyze the situation: check if the model is improving, stagnating, or degrading, "
+    "look for signs of overfitting/underfitting, assess feature quality, "
+    "and understand how changes affected results. "
+    "Return a recommendation (continue / switch_model / switch_features / stop), "
+    "explain your reasoning, and optionally provide a confidence score."
+)
+
+class LLMRunContext:
+    def __init__(
+        self,
+        current_metrics: Dict[str, float],
+        history: List[Dict[str, float]],
+        task_type: str,
+        model_info: Dict[str, Any],
+        selected_features: List[FeatureSpec],
+        optimization_goal: str
+    ):
+        self.current_metrics = current_metrics
+        self.history = history
+        self.task_type = task_type
+        self.model_info = model_info
+        self.selected_features = selected_features
+        self.optimization_goal = optimization_goal
+
+def _build_prompt(ctx: LLMRunContext) -> str:
+    lines = [
+        "## Modeling Context",
+        f"- Task type: {ctx.task_type}",
+        f"- Optimization goal: {ctx.optimization_goal}",
+        "",
+        "## Model Info",
+        *(f"- {k}: {v}" for k, v in ctx.model_info.items()),
+        "",
+        "## Selected Features",
+        *(f"- {f.name} ({f.dtype})" for f in ctx.selected_features),
+        "",
+        "## Current Metrics",
+        *(f"- {k}: {v:.4f}" for k, v in ctx.current_metrics.items()),
+        "",
+        "## History (previous iterations)",
+    ]
+    if ctx.history:
+        for i, metrics in enumerate(ctx.history, 1):
+            hist_line = ", ".join(f"{k}: {v:.4f}" for k, v in metrics.items())
+            lines.append(f"- Iteration {i}: {hist_line}")
+    else:
+        lines.append("- No previous iterations.")
+    return "\n".join(lines)
+
+def _call_llm(prompt: str) -> EvaluationDecision:
+    try:
+        client = instructor.from_openai(OpenAI(api_key=API_KEY))
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            temperature=0.2,
+            max_tokens=512,
+            messages=[
+                {"role": "system", "content": _SYSTEM_ROLE},
+                {"role": "user", "content": prompt}
+            ],
+            response_model=EvaluationDecision,
+            max_retries=3
+        )
+        return response
+    except ValidationError as e:
+        logger.error(f"LLM response validation error: {e}")
+        raise e
+    except Exception as e:
+        logger.error(f"LLM call failed: {e}")
+        raise e
+
+def run_evaluation_agent(
+    request: EvaluationRequest,
+    current_metrics: Dict[str, float],
+    history: List[Dict[str, float]],
+    model_info: Dict[str, Any],
+    optimization_goal: str
+) -> EvaluationDecision:
+    """
+    Main entry point for the EvaluationAgent.
+    Builds the context, sends it to the LLM, and returns the decision.
+    """
+    logger.info(f"Running evaluation agent for dataset '{request.metadata.dataset_name}'")
+
+    ctx = LLMRunContext(
+        current_metrics=current_metrics,
+        history=history,
+        task_type=request.metadata.problem_type,
+        model_info=model_info,
+        selected_features=request.selected_features,
+        optimization_goal=optimization_goal
+    )
+    prompt = _build_prompt(ctx)
+    logger.info(f"Prompt length: {len(prompt)} characters")
+    logger.debug(f"Prompt content:\n{prompt}")
+
+    decision = _call_llm(prompt)
+    logger.info(f"LLM decision: {decision.recommendation}")
+    logger.debug(f"LLM reasoning: {decision.reasoning}")
+
+    return decision
