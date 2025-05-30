@@ -7,6 +7,8 @@ from unittest import TestCase
 from pydantic import ValidationError
 from schemas.evaluation import EvaluationRequest, EvaluationResponse
 from schemas.shared import Metadata
+from models.feature import FeatureSpec
+from models.model import ModelEnum
 
 class TestEvaluationSchemas(TestCase):
     def setUp(self):
@@ -15,15 +17,20 @@ class TestEvaluationSchemas(TestCase):
             problem_type="classification",
             target_column="Survived"
         )
+        self.features = [
+            FeatureSpec(name="age", dtype="numeric", origin="raw", transformer="none"),
+            FeatureSpec(name="fare", dtype="numeric", origin="raw", transformer="none"),
+            FeatureSpec(name="sex_male", dtype="categorical", origin="raw", transformer="none"),
+        ]
 
     def test_valid_evaluation_request(self):
         req = EvaluationRequest(
             metadata=self.metadata,
-            selected_features=["age", "fare", "sex_male"],
-            model_name="RandomForestClassifier",
+            selected_features=self.features,
+            model_name=ModelEnum.RANDOMFOREST,
             hyperparameters={"n_estimators": 100, "max_depth": 5}
         )
-        self.assertEqual(req.model_name, "RandomForestClassifier")
+        self.assertEqual(req.model_name, ModelEnum.RANDOMFOREST)
         self.assertIn("n_estimators", req.hyperparameters)
 
     def test_invalid_evaluation_request_missing_fields(self):
@@ -31,7 +38,7 @@ class TestEvaluationSchemas(TestCase):
             EvaluationRequest(
                 metadata=self.metadata,
                 selected_features=[],
-                model_name="",
+                model_name=None,
                 hyperparameters=None
             )
 
@@ -48,3 +55,4 @@ class TestEvaluationSchemas(TestCase):
             EvaluationResponse(
                 metrics={"accuracy": 0.9}
             )
+            

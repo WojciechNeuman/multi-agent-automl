@@ -2,6 +2,8 @@ from unittest import TestCase
 from unittest.mock import patch
 from schemas.evaluation import EvaluationRequest, EvaluationResponse
 from schemas.shared import Metadata
+from models.feature import FeatureSpec
+from models.model import ModelEnum
 import sys, os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
@@ -13,11 +15,16 @@ class TestEvaluationAgentWithMock(TestCase):
             problem_type="classification",
             target_column="Survived"
         )
+        self.features = [
+            FeatureSpec(name="age", dtype="numeric", origin="raw", transformer="none"),
+            FeatureSpec(name="fare", dtype="numeric", origin="raw", transformer="none"),
+            FeatureSpec(name="sex_male", dtype="categorical", origin="raw", transformer="none"),
+        ]
 
         self.request = EvaluationRequest(
             metadata=self.metadata,
-            selected_features=["age", "fare", "sex_male"],
-            model_name="RandomForestClassifier",
+            selected_features=self.features,
+            model_name=ModelEnum.RANDOMFOREST,
             hyperparameters={"n_estimators": 100, "max_depth": 5}
         )
 
@@ -47,3 +54,4 @@ class TestEvaluationAgentWithMock(TestCase):
             self.assertEqual(response.reasoning[:9], "The model")
             self.assertEqual(response.visualizations["confusion_matrix"], "base64img")
             mock_create.assert_called_once()
+            
