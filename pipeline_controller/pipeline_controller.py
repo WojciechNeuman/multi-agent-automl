@@ -12,7 +12,7 @@ from agents.feature_agent import run_feature_agent
 from schemas.model_selection import ModelSelectionRequest
 from agents.model_selection_agent import run_model_agent
 from schemas.evaluation import EvaluationRequest
-from agents.evaluation_agent import run_evaluation_agent
+from agents.evaluation_agent import run_evaluation_agent, build_evaluation_conclusions
 from utils.metrics_calculator import calculate_metrics
 
 from sklearn.model_selection import train_test_split
@@ -40,7 +40,7 @@ class PipelineController:
         self.main_metric = main_metric
         self.models_results = []
 
-    def run_feature_selection(self):
+    def run_feature_selection(self, evaluation_conclusions: str = None):
         sample = self.df.head(500).to_dict(orient='list')
         feature_req = FeatureSelectionRequest(
             metadata={
@@ -57,7 +57,7 @@ class PipelineController:
         self.features_preprocessing_code = feature_resp.preprocessing_code
         return feature_resp
 
-    def run_model_selection(self):
+    def run_model_selection(self, evaluation_conclusions: str = None):
         sample = self.df.head(10).to_dict(orient='list')
         model_req = ModelSelectionRequest(
             metadata={
@@ -111,7 +111,7 @@ class PipelineController:
         decision = run_evaluation_agent(
             request=eval_req,
             current_metrics=current_metrics,
-            history=self.metrics_history[:-1],  # previous metrics
+            history=self.metrics_history[:-1],
             model_info={
                 "model_name": self.model_name,
                 "hyperparameters": self.model_hyperparams
@@ -125,14 +125,15 @@ class PipelineController:
         best_metric = -float("inf")
         best_reasoning = ""
         best_model_info = None
+        evaluation_conclusions = None
 
         for iteration in range(1, self.max_iterations + 1):
             print(f"\n=== Iteration {iteration} ===")
-            feature_resp = self.run_feature_selection()
+            feature_resp = self.run_feature_selection(evaluation_conclusions)
             print("Selected features:", [f.name for f in self.selected_features])
             print("Feature agent reasoning:", feature_resp.reasoning)
 
-            model_resp = self.run_model_selection()
+            model_resp = self.run_model_selection(evaluation_conclusions)
             print("Selected model:", self.model_name)
             print("Hyperparameters:", self.model_hyperparams)
             print("Model agent reasoning:", model_resp[0].reasoning)
@@ -144,6 +145,13 @@ class PipelineController:
             print("Recommendation:", decision.recommendation)
             print("Reasoning:", decision.reasoning)
             print("Confidence:", decision.confidence)
+
+            evaluation_conclusions = build_evaluation_conclusions(
+                selected_features=self.selected_features,
+                model_name=self.model_name,
+                hyperparameters=self.model_hyperparams,
+                evaluation_decision=decision
+            )
 
             # Save result for later selection
             metric_value = current_metrics.get(f"test_{self.main_metric}", None)

@@ -145,3 +145,21 @@ def run_evaluation_agent(
     logger.info(f"Reasoning: {decision.reasoning}")
 
     return decision
+
+def build_evaluation_conclusions(
+    selected_features: List[FeatureSpec],
+    model_name: str,
+    hyperparameters: Dict[str, Any],
+    evaluation_decision: EvaluationDecision
+) -> str:
+    features_str = ", ".join([f.name for f in selected_features])
+    hyperparams_str = ", ".join(f"{k}={v}" for k, v in hyperparameters.items())
+    summary = (
+        f"Features selected: {features_str}\n"
+        f"Model: {model_name}\n"
+        f"Hyperparameters: {hyperparams_str}\n"
+        f"Evaluation conclusion: {evaluation_decision.reasoning}\n"
+        f"Recommendation: {evaluation_decision.recommendation}\n"
+        f"Confidence: {evaluation_decision.confidence}"
+    )
+    return summary
