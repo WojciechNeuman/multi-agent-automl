@@ -215,12 +215,15 @@ class PipelineController:
 
         return best_result
 
-# Example usage:
-controller = PipelineController(
-    dataset_path="../datasets/titanic.csv",
-    target_column="Survived",
-    problem_type="classification",
-    max_iterations=3,
-    main_metric="accuracy"
-)
-controller.run_full_pipeline()
+def main():
+    controller = PipelineController(
+        dataset_path="../datasets/titanic.csv",
+        target_column="Survived",
+        problem_type="classification",
+        max_iterations=3,
+        main_metric="accuracy"
+    )
+    controller.run_full_pipeline()
+
+if __name__ == "__main__":
+    main()
