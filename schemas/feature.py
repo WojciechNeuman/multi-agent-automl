@@ -74,6 +74,13 @@ class FeatureSelectionRequest(BaseModel):
     llm_config: LLMConfig = Field(
         default_factory=LLMConfig, description="Parameters used for the chat call."
     )
+    evaluation_conclusions: Optional[str] = Field(
+        None,
+        description=(
+            "Optional summary of previous evaluation results, if available. "
+            "Helps the LLM avoid repeating past mistakes."
+        ),
+    )
 
 class FeatureSelectionResponse(BaseModel):
     """Output returned by FeatureAgent."""
