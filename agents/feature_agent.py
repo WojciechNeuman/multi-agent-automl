@@ -78,6 +78,19 @@ _SYSTEM_ROLE = (
     "including numeric, categorical, text, and datetime features. "
     "Select the best features for a predictive model, aiming for "
     "accuracy and interpretability. "
+    "Return your answer as a JSON object with the following fields:\n"
+    "- selected_features: a list of objects, each with fields: name (str), dtype (one of 'numeric', 'categorical', 'text', 'datetime'), origin ('raw' or 'derived'), transformer (str), params (dict), importance (float or null)\n"
+    "- preprocessing_code: a string (base64-encoded pipeline)\n"
+    "- reasoning: a string (≤500 words, summarizing your rationale)\n"
+    "Example:\n"
+    "{\n"
+    "  \"selected_features\": [\n"
+    "    {\"name\": \"age\", \"dtype\": \"numeric\", \"origin\": \"raw\", \"transformer\": \"none\", \"params\": {}, \"importance\": 0.42},\n"
+    "    {\"name\": \"sex\", \"dtype\": \"categorical\", \"origin\": \"raw\", \"transformer\": \"onehot\", \"params\": {}, \"importance\": 0.31}\n"
+    "  ],\n"
+    "  \"preprocessing_code\": \"<base64 string>\",\n"
+    "  \"reasoning\": \"Selected features based on mutual information and missing values. Age is numeric and important, sex is categorical and predictive.\"\n"
+    "}\n"
 )
 
 def _build_prompt(
@@ -151,34 +164,39 @@ def _build_prompt(
             f"\n### Recommended by Mutual-Information: {', '.join(recommended)}"
         )
 
+    if req.evaluation_conclusions:
+        lines.append(
+            f"\n### (THE MOST IMPORTANT PART!!!) Previous evaluation conclusions: {req.evaluation_conclusions}"
+        )
+
     return "\n".join(lines)
 
-def _call_llm(
-    req: FeatureSelectionRequest, prompt: str
-) -> FeatureSelectionResponse:
+def _call_llm(req: FeatureSelectionRequest, prompt: str, retries: int = 3) -> FeatureSelectionResponse:
     """
     Call the LLM with the given prompt and return the response.
-    The response is expected to be a JSON string that can be parsed into
-    FeatureSelectionResponse.
+    Retries up to `retries` times on ValidationError or Exception.
     """
-    try:
-        client = instructor.from_openai(OpenAI(api_key=API_KEY))
-        response = client.chat.completions.create(
-            model=req.llm_config.model,
-            temperature=req.llm_config.temperature,
-            max_tokens=req.llm_config.max_tokens,
-            messages=[{"role": "system", "content": _SYSTEM_ROLE},
-                      {"role": "user", "content": prompt}],
-            response_model=FeatureSelectionResponse,
-            max_retries=3
-        )
-        return response
-    except ValidationError as e:
-        logger.error(f"LLM response validation error: {e}")
-        raise e
-    except Exception as e:
-        logger.error(f"LLM call failed: {e}")
-        raise e
+    for attempt in range(1, retries + 1):
+        try:
+            client = instructor.from_openai(OpenAI(api_key=API_KEY))
+            response = client.chat.completions.create(
+                model=req.llm_config.model,
+                temperature=req.llm_config.temperature,
+                max_tokens=req.llm_config.max_tokens,
+                messages=[{"role": "system", "content": _SYSTEM_ROLE},
+                          {"role": "user", "content": prompt}],
+                response_model=FeatureSelectionResponse,
+                max_retries=3
+            )
+            return response
+        except ValidationError as e:
+            logger.error(f"LLM response validation error (attempt {attempt+1}/3): {e}")
+            if attempt == retries:
+                raise
+        except Exception as e:
+            logger.error(f"LLM call failed (attempt {attempt+1}/3): {e}")
+            if attempt == retries:
+                raise
 
 # --------------------------------------------------------------------------- #
 # Public API                                                                   #

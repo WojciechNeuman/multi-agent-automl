@@ -28,8 +28,16 @@ _SYSTEM_ROLE = (
     "Analyze the situation: check if the model is improving, stagnating, or degrading, "
     "look for signs of overfitting/underfitting, assess feature quality, "
     "and understand how changes affected results. "
-    "Return a recommendation (continue / switch_model / switch_features / stop), "
-    "explain your reasoning, and optionally provide a confidence score."
+    "Return your answer as a JSON object with the following fields:\n"
+    "- recommendation: one of ['continue', 'switch_model', 'switch_features', 'stop']\n"
+    "- reasoning: a string (max 500 characters) explaining your decision\n"
+    "- confidence: a number between 0 and 1 (optional, can be null)\n"
+    "Example:\n"
+    "{\n"
+    "  \"recommendation\": \"continue\",\n"
+    "  \"reasoning\": \"Model performance is improving over the last 2 iterations. No signs of overfitting detected.\",\n"
+    "  \"confidence\": 0.87\n"
+    "}\n"
 )
 
 class LLMRunContext:
@@ -74,27 +82,34 @@ def _build_prompt(ctx: LLMRunContext) -> str:
         lines.append("- No previous iterations.")
     return "\n".join(lines)
 
-def _call_llm(prompt: str) -> EvaluationDecision:
-    try:
-        client = instructor.from_openai(OpenAI(api_key=API_KEY))
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            temperature=0.2,
-            max_tokens=512,
-            messages=[
-                {"role": "system", "content": _SYSTEM_ROLE},
-                {"role": "user", "content": prompt}
-            ],
-            response_model=EvaluationDecision,
-            max_retries=3
-        )
-        return response
-    except ValidationError as e:
-        logger.error(f"LLM response validation error: {e}")
-        raise e
-    except Exception as e:
-        logger.error(f"LLM call failed: {e}")
-        raise e
+def _call_llm(prompt: str, retries: int = 3) -> EvaluationDecision:
+    """
+    Call the LLM with the given prompt and return the response.
+    Retries up to 3 times on ValidationError or Exception.
+    """
+    for attempt in range(1, retries + 1):
+        try:
+            client = instructor.from_openai(OpenAI(api_key=API_KEY))
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                temperature=0.2,
+                max_tokens=512,
+                messages=[
+                    {"role": "system", "content": _SYSTEM_ROLE},
+                    {"role": "user", "content": prompt}
+                ],
+                response_model=EvaluationDecision,
+                max_retries=3
+            )
+            return response
+        except ValidationError as e:
+            logger.error(f"LLM response validation error (attempt {attempt+1}/3): {e}")
+            if attempt == retries:
+                raise
+        except Exception as e:
+            logger.error(f"LLM call failed (attempt {attempt+1}/3): {e}")
+            if attempt == retries:
+                raise
 
 def run_evaluation_agent(
     request: EvaluationRequest,

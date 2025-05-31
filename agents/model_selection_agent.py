@@ -43,6 +43,16 @@ _SYSTEM_ROLE = (
     "including numeric, categorical, text, and datetime features. "
     "Select the best model and hyperparameters for a predictive model, aiming for "
     "accuracy and interpretability. "
+    "Return your answer as a JSON object with the following fields:\n"
+    "- model_name: one of ['RandomForest', 'LogisticRegression', 'LinearRegression', 'GradientBoosting', 'SVC', 'KNeighbors']\n"
+    "- hyperparameters: a dictionary of hyperparameter names and values for the selected model\n"
+    "- reasoning: a string explaining why this model and configuration were chosen\n"
+    "Example:\n"
+    "{\n"
+    "  \"model_name\": \"RandomForest\",\n"
+    "  \"hyperparameters\": {\"max_depth\": 5, \"n_estimators\": 100},\n"
+    "  \"reasoning\": \"RandomForest is robust for tabular data with mixed types and handles missing values well. Hyperparameters were chosen based on dataset size and feature count.\"\n"
+    "}\n"
 )
 
 
@@ -64,29 +74,39 @@ def _build_prompt(req: ModelSelectionRequest) -> str:
     for col in req.selected_features:
         lines.append(f"- {col}")
 
+    if req.evaluation_conclusions:
+        lines.append(
+            f"\n## (THE MOST IMPORTANT PART!!!) Previous Evaluation Conclusions: {req.evaluation_conclusions}"
+        )
+
     return "\n".join(lines)
 
-def _call_llm(req: ModelSelectionRequest, prompt: str) -> ModelSelectionResponse:
+def _call_llm(req: ModelSelectionRequest, prompt: str, retries: int = 3) -> ModelSelectionResponse:
     """
     Call the LLM with the given prompt and return the response.
+    Retries up to `retries` times on ValidationError or Exception.
     """
-    try:
-        client = instructor.from_openai(OpenAI(api_key=API_KEY))
-        response = client.chat.completions.create(
-            model=req.llm_config.model,
-            temperature=req.llm_config.temperature,
-            max_tokens=req.llm_config.max_tokens,
-            messages=[{"role": "system", "content": _SYSTEM_ROLE},
-                      {"role": "user", "content": prompt}],
-            response_model=ModelSelectionResponse
-        )
-        return response
-    except ValidationError as e:
-        logger.error(f"LLM response validation error: {e}")
-        raise e
-    except Exception as e:
-        logger.error(f"LLM call failed: {e}")
-        raise e
+    for attempt in range(1, retries + 1):
+        try:
+            client = instructor.from_openai(OpenAI(api_key=API_KEY))
+            response = client.chat.completions.create(
+                model=req.llm_config.model,
+                temperature=req.llm_config.temperature,
+                max_tokens=req.llm_config.max_tokens,
+                messages=[{"role": "system", "content": _SYSTEM_ROLE},
+                          {"role": "user", "content": prompt}],
+                response_model=ModelSelectionResponse,
+                max_retries=3
+            )
+            return response
+        except ValidationError as e:
+            logger.error(f"LLM response validation error (attempt {attempt+1}/3): {e}")
+            if attempt == retries:
+                raise
+        except Exception as e:
+            logger.error(f"LLM call failed (attempt {attempt+1}/3): {e}")
+            if attempt == retries:
+                raise
 
 # --------------------------------------------------------------------------- #
 # Public API                                                                  #
