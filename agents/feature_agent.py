@@ -13,6 +13,7 @@ import os
 import sys
 import instructor
 import base64
+import time
 
 import numpy as np
 import pandas as pd
@@ -40,7 +41,7 @@ API_KEY = os.getenv("API_KEY")
 # Configure loguru (basic console + rotating file)
 logger.remove()
 logger.add("logs/feature_agent.log", rotation="10 MB", retention="7 days", level="DEBUG")
-logger.add(sys.stderr, level="INFO")
+
 
 # --------------------------------------------------------------------------- #
 # Pre-filters                                                                  #
@@ -75,9 +76,37 @@ _SYSTEM_ROLE = (
     "You are a senior Feature Engineering Assistant. "
     "You will receive a compact description of a dataset's columns, "
     "including numeric, categorical, text, and datetime features. "
-    "Select the best features for a predictive model, aiming for "
-    "accuracy and interpretability. "
+    "Your goal is to select the most useful features for predictive modeling, balancing:\n"
+    "- accuracy and generalization,\n"
+    "- interpretability,\n"
+    "- robustness to missing values or noise,\n"
+    "- potential interactions between variables.\n\n"
+
+    "⚠️ Important:\n"
+    "- You are encouraged to **experiment** and sometimes include features that may not appear useful at first glance "
+    "(e.g., weak correlation, high cardinality) if they might interact well with others.\n"
+    "- Do not limit yourself to only obviously strong predictors — explore feature diversity and potential synergy.\n"
+    "- However, always justify your selection clearly and concisely.\n\n"
+
+    "Return your answer as a JSON object with the following fields:\n"
+    "- selected_features: a list of objects, each with fields: "
+    "name (str), dtype (one of 'numeric', 'categorical', 'text', 'datetime'), "
+    "origin ('raw' or 'derived'), transformer (str), params (dict), importance (float or null)\n"
+    "- preprocessing_code: a string (base64-encoded pipeline)\n"
+    "- reasoning: a string (≤500 words, summarizing your rationale and why the features were selected)\n\n"
+
+    "Example:\n"
+    "{\n"
+    "  \"selected_features\": [\n"
+    "    {\"name\": \"age\", \"dtype\": \"numeric\", \"origin\": \"raw\", \"transformer\": \"none\", \"params\": {}, \"importance\": 0.42},\n"
+    "    {\"name\": \"sex\", \"dtype\": \"categorical\", \"origin\": \"raw\", \"transformer\": \"onehot\", \"params\": {}, \"importance\": 0.31},\n"
+    "    {\"name\": \"country\", \"dtype\": \"categorical\", \"origin\": \"raw\", \"transformer\": \"onehot\", \"params\": {}, \"importance\": 0.11}\n"
+    "  ],\n"
+    "  \"preprocessing_code\": \"<base64 string>\",\n"
+    "  \"reasoning\": \"Selected based on mutual information and data diversity. While 'country' has weak direct correlation, it may provide interaction signals with age and income.\"\n"
+    "}"
 )
+
 
 def _build_prompt(
     req: FeatureSelectionRequest,
@@ -150,39 +179,48 @@ def _build_prompt(
             f"\n### Recommended by Mutual-Information: {', '.join(recommended)}"
         )
 
+    if req.evaluation_conclusions:
+        lines.append(
+            f"\n### (THE MOST IMPORTANT PART!!!) Previous evaluation conclusions: {req.evaluation_conclusions}"
+        )
+
     return "\n".join(lines)
 
-def _call_llm(
-    req: FeatureSelectionRequest, prompt: str
-) -> FeatureSelectionResponse:
+def _call_llm(req: FeatureSelectionRequest, prompt: str, retries: int = 3) -> FeatureSelectionResponse:
     """
     Call the LLM with the given prompt and return the response.
-    The response is expected to be a JSON string that can be parsed into
-    FeatureSelectionResponse.
+    Retries up to `retries` times on ValidationError or Exception.
     """
-    try:
-        client = instructor.from_openai(OpenAI(api_key=API_KEY))
-        response = client.chat.completions.create(
-            model=req.llm_config.model,
-            temperature=req.llm_config.temperature,
-            max_tokens=req.llm_config.max_tokens,
-            messages=[{"role": "system", "content": _SYSTEM_ROLE},
-                      {"role": "user", "content": prompt}],
-            response_model=FeatureSelectionResponse,
-            max_retries=3
-        )
-        return response
-    except ValidationError as e:
-        logger.error(f"LLM response validation error: {e}")
-        raise e
-    except Exception as e:
-        logger.error(f"LLM call failed: {e}")
-        raise e
+    for attempt in range(1, retries + 1):
+        try:
+            client = instructor.from_openai(OpenAI(api_key=API_KEY))
+            response = client.chat.completions.create(
+                model=req.llm_config.model,
+                temperature=req.llm_config.temperature,
+                max_tokens=req.llm_config.max_tokens,
+                messages=[{"role": "system", "content": _SYSTEM_ROLE},
+                          {"role": "user", "content": prompt}],
+                response_model=FeatureSelectionResponse,
+                max_retries=3
+            )
+            return response
+        except ValidationError as e:
+            logger.error(f"LLM response validation error (attempt {attempt+1}/3): {e}")
+            if attempt == retries:
+                raise
+        except Exception as e:
+            logger.error(f"LLM call failed (attempt {attempt+1}/3): {e}")
+            if attempt == retries:
+                raise
 
 # --------------------------------------------------------------------------- #
 # Public API                                                                   #
 # --------------------------------------------------------------------------- #
 def run_feature_agent(req: FeatureSelectionRequest) -> FeatureSelectionResponse:
+    logger.info("Feature Agent started with default parameters: "
+                f"max_features={req.max_features}, selection_goal={getattr(req, 'selection_goal', None)}")
+    start_time = time.time()
+
     logger.info(f"Processing request for dataset '{req.metadata.dataset_name}'")
 
     # 1. Load and pre-filter sample
@@ -222,7 +260,10 @@ def run_feature_agent(req: FeatureSelectionRequest) -> FeatureSelectionResponse:
         raise
 
     # 6. Done
-    logger.info("Feature selection completed successfully")
+    elapsed = time.time() - start_time
+    logger.info(f"Feature Agent finished after {elapsed:.2f} seconds. "
+                f"Selected features: {[f.name for f in response.selected_features]}")
+    logger.info(f"Reasoning: {response.reasoning}")
     return FeatureSelectionResponse(
         selected_features=response.selected_features,
         preprocessing_code=pipe_blob,

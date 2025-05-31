@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import List, Dict, Any
 from pydantic import ValidationError
 import os
-import sys
 import instructor
 from openai import OpenAI
 from dotenv import load_dotenv
 from loguru import logger
+import time
 
 from schemas.evaluation import EvaluationRequest, EvaluationDecision
 from models.feature import FeatureSpec
@@ -15,22 +15,40 @@ from models.feature import FeatureSpec
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
-# Configure loguru (console + rotating file)
 logger.remove()
 logger.add("logs/evaluation_agent.log", rotation="10 MB", retention="7 days", level="DEBUG")
-logger.add(sys.stderr, level="INFO")
 
 _SYSTEM_ROLE = (
-    "You are an advanced AutoML Evaluation Agent. "
-    "You receive the current model's metrics, history of previous results, "
-    "task type (classification or regression), model details, selected features, "
-    "and optimization goal. "
-    "Analyze the situation: check if the model is improving, stagnating, or degrading, "
-    "look for signs of overfitting/underfitting, assess feature quality, "
-    "and understand how changes affected results. "
-    "Return a recommendation (continue / switch_model / switch_features / stop), "
-    "explain your reasoning, and optionally provide a confidence score."
+    "You are a critical AutoML Evaluation Agent responsible for iterative improvement "
+    "of ML pipelines. You will receive:\n"
+    "- current model metrics (train/test),\n"
+    "- history of previous test results,\n"
+    "- task type (classification or regression),\n"
+    "- selected features and model info,\n"
+    "- optimization goal (e.g. maximize recall, avoid overfitting).\n\n"
+
+    "You must thoroughly analyze the situation with the following expectations:\n"
+    "1. If the model's test performance is low (e.g. F1, accuracy, recall < 0.70) OR the difference between training and test metrics exceeds 0.15–0.20, treat it as a clear sign of overfitting. In such cases, avoid recommending `continue`.\n"
+    "2. If performance is improving across iterations and the train/test gap remains small (e.g. ≤ 0.10), then `continue` may be justified — but only with a clear rationale.\n"
+    "3. If results stagnate, degrade, or the model repeatedly shows poor generalization (e.g. high variance between train/test), recommend `switch_model` or `switch_features` — depending on what is more likely to be the root cause.\n"
+    "4. `stop` should only be suggested when the model consistently performs well (e.g. test metrics ≥ 0.85) and no meaningful improvements have been observed over multiple iterations.\n"
+    "5. Never default to the first valid recommendation. Compare current performance with history, apply critical judgment, and base your decision on metric dynamics and optimization goals.\n\n"
+
+    "You MUST justify your recommendation clearly. Be brief, precise, and grounded in the provided metrics.\n\n"
+
+    "Return your answer as a JSON object with the following fields:\n"
+    "- recommendation: one of ['continue', 'switch_model', 'switch_features', 'stop']\n"
+    "- reasoning: a string (max 500 characters) justifying your decision\n"
+    "- confidence: a number between 0 and 1 (optional, can be null)\n\n"
+
+    "Example output:\n"
+    "{\n"
+    "  \"recommendation\": \"switch_model\",\n"
+    "  \"reasoning\": \"Test accuracy stagnates at ~0.64 while train is >0.9, suggesting overfitting. Switching model may help.\",\n"
+    "  \"confidence\": 0.82\n"
+    "}"
 )
+
 
 class LLMRunContext:
     def __init__(
@@ -74,27 +92,34 @@ def _build_prompt(ctx: LLMRunContext) -> str:
         lines.append("- No previous iterations.")
     return "\n".join(lines)
 
-def _call_llm(prompt: str) -> EvaluationDecision:
-    try:
-        client = instructor.from_openai(OpenAI(api_key=API_KEY))
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            temperature=0.2,
-            max_tokens=512,
-            messages=[
-                {"role": "system", "content": _SYSTEM_ROLE},
-                {"role": "user", "content": prompt}
-            ],
-            response_model=EvaluationDecision,
-            max_retries=3
-        )
-        return response
-    except ValidationError as e:
-        logger.error(f"LLM response validation error: {e}")
-        raise e
-    except Exception as e:
-        logger.error(f"LLM call failed: {e}")
-        raise e
+def _call_llm(prompt: str, retries: int = 3) -> EvaluationDecision:
+    """
+    Call the LLM with the given prompt and return the response.
+    Retries up to 3 times on ValidationError or Exception.
+    """
+    for attempt in range(1, retries + 1):
+        try:
+            client = instructor.from_openai(OpenAI(api_key=API_KEY))
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                temperature=0.2,
+                max_tokens=512,
+                messages=[
+                    {"role": "system", "content": _SYSTEM_ROLE},
+                    {"role": "user", "content": prompt}
+                ],
+                response_model=EvaluationDecision,
+                max_retries=3
+            )
+            return response
+        except ValidationError as e:
+            logger.error(f"LLM response validation error (attempt {attempt+1}/3): {e}")
+            if attempt == retries:
+                raise
+        except Exception as e:
+            logger.error(f"LLM call failed (attempt {attempt+1}/3): {e}")
+            if attempt == retries:
+                raise
 
 def run_evaluation_agent(
     request: EvaluationRequest,
@@ -107,7 +132,9 @@ def run_evaluation_agent(
     Main entry point for the EvaluationAgent.
     Builds the context, sends it to the LLM, and returns the decision.
     """
+    logger.info("Evaluation Agent started processing.")
     logger.info(f"Running evaluation agent for dataset '{request.metadata.dataset_name}'")
+    start_time = time.time()
 
     ctx = LLMRunContext(
         current_metrics=current_metrics,
@@ -122,7 +149,33 @@ def run_evaluation_agent(
     logger.debug(f"Prompt content:\n{prompt}")
 
     decision = _call_llm(prompt)
-    logger.info(f"LLM decision: {decision.recommendation}")
-    logger.debug(f"LLM reasoning: {decision.reasoning}")
+    elapsed = time.time() - start_time
+    logger.info(f"Evaluation Agent finished after {elapsed:.2f} seconds. "
+                f"Recommendation: {decision.recommendation}")
+    logger.info(f"Reasoning: {decision.reasoning}")
 
     return decision
+
+def build_evaluation_conclusions(
+    selected_features: List[FeatureSpec],
+    model_name: str,
+    hyperparameters: Dict[str, Any],
+    evaluation_decision: EvaluationDecision,
+    iteration: int = None
+) -> str:
+    features_str = ", ".join([f.name for f in selected_features])
+    hyperparams_str = ", ".join(f"{k}={v}" for k, v in hyperparameters.items())
+    if iteration is not None:
+        iteration_str = f"Iteration {iteration} conclusions:\n"
+    else:
+        iteration_str = ""
+    summary = (
+        f"{iteration_str}\n"
+        f"Features selected: {features_str}\n"
+        f"Model: {model_name}\n"
+        f"Hyperparameters: {hyperparams_str}\n"
+        f"Evaluation conclusion: {evaluation_decision.reasoning}\n"
+        f"Recommendation: {evaluation_decision.recommendation}\n"
+        f"Confidence: {evaluation_decision.confidence}"
+    )
+    return summary

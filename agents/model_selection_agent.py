@@ -12,13 +12,13 @@ from loguru import logger
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import ValidationError
+import time
 
 from schemas.model_selection import (
     ModelSelectionRequest,
     ModelSelectionResponse,
     ModelEnum,
 )
-from schemas.shared import LLMConfig
 
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression, LinearRegression
@@ -31,7 +31,6 @@ API_KEY = os.getenv("API_KEY")
 # Configure loguru (basic console + rotating file)
 logger.remove()
 logger.add("logs/model_selection_agent.log", rotation="10 MB", retention="7 days", level="DEBUG")
-logger.add(sys.stderr, level="INFO")
 
 # --------------------------------------------------------------------------- #
 # LLM helpers                                                                 #
@@ -39,9 +38,39 @@ logger.add(sys.stderr, level="INFO")
 _SYSTEM_ROLE = (
     "You are a senior Model Selection Assistant. "
     "You will receive a compact description of a dataset's columns, "
-    "including numeric, categorical, text, and datetime features. "
-    "Select the best model and hyperparameters for a predictive model, aiming for "
-    "accuracy and interpretability. "
+    "including numeric, categorical, text, and datetime features, "
+    "as well as previous evaluation results if available.\n\n"
+
+    "Your goal is to choose the most suitable ML model and its hyperparameters "
+    "for a predictive task, with emphasis on:\n"
+    "- accuracy and generalization,\n"
+    "- interpretability where relevant,\n"
+    "- robustness to noise or missing data,\n"
+    "- and potential synergies with the selected features.\n\n"
+
+    "Important guidelines:\n"
+    "- If past evaluation results are available, analyze them carefully.\n"
+    "    - Identify which models performed best (e.g. highest test accuracy or lowest generalization gap).\n"
+    "    - Prefer improving or fine-tuning models that already performed well.\n"
+    "    - Consider whether simpler models (e.g. LogisticRegression) outperformed complex ones (e.g. GradientBoosting) — "
+    "this may indicate overfitting in complex models or strong signal structure.\n"
+    "- You are encouraged to **experiment** with different model types if justified by data shape or past results.\n"
+    "- Also experiment with **non-default hyperparameters** that suit the dataset's size, sparsity, noise level, or feature count.\n"
+    "- NEVER blindly default to a model — every decision must be **rational and explained** based on metadata and history.\n\n"
+    "- NEVER choose the same model (model and hyperparameters) with the same features as before (information about previous evaluations is provided).\n"
+
+    "Return your answer as a JSON object with the following fields:\n"
+    "- model_name: one of ['RandomForest', 'LogisticRegression', 'LinearRegression', 'GradientBoosting', 'SVC', 'KNeighbors']\n"
+    "- hyperparameters: a dictionary of hyperparameter names and values for the selected model\n"
+    "- reasoning: a string (≤500 characters) explaining why this model and configuration were chosen. "
+    "Your explanation must be concise, data-aware, and reflect performance history.\n\n"
+
+    "Example:\n"
+    "{\n"
+    "  \"model_name\": \"GradientBoosting\",\n"
+    "  \"hyperparameters\": {\"n_estimators\": 150, \"learning_rate\": 0.05},\n"
+    "  \"reasoning\": \"GradientBoosting outperformed others in past iterations. Using more trees and lower learning rate to reduce overfitting.\"\n"
+    "}"
 )
 
 
@@ -63,29 +92,39 @@ def _build_prompt(req: ModelSelectionRequest) -> str:
     for col in req.selected_features:
         lines.append(f"- {col}")
 
+    if req.evaluation_conclusions:
+        lines.append(
+            f"\n## (THE MOST IMPORTANT PART!!!) Previous Evaluation Conclusions: {req.evaluation_conclusions}"
+        )
+
     return "\n".join(lines)
 
-def _call_llm(req: ModelSelectionRequest, prompt: str) -> ModelSelectionResponse:
+def _call_llm(req: ModelSelectionRequest, prompt: str, retries: int = 3) -> ModelSelectionResponse:
     """
     Call the LLM with the given prompt and return the response.
+    Retries up to `retries` times on ValidationError or Exception.
     """
-    try:
-        client = instructor.from_openai(OpenAI(api_key=API_KEY))
-        response = client.chat.completions.create(
-            model=req.llm_config.model,
-            temperature=req.llm_config.temperature,
-            max_tokens=req.llm_config.max_tokens,
-            messages=[{"role": "system", "content": _SYSTEM_ROLE},
-                      {"role": "user", "content": prompt}],
-            response_model=ModelSelectionResponse
-        )
-        return response
-    except ValidationError as e:
-        logger.error(f"LLM response validation error: {e}")
-        raise e
-    except Exception as e:
-        logger.error(f"LLM call failed: {e}")
-        raise e
+    for attempt in range(1, retries + 1):
+        try:
+            client = instructor.from_openai(OpenAI(api_key=API_KEY))
+            response = client.chat.completions.create(
+                model=req.llm_config.model,
+                temperature=req.llm_config.temperature,
+                max_tokens=req.llm_config.max_tokens,
+                messages=[{"role": "system", "content": _SYSTEM_ROLE},
+                          {"role": "user", "content": prompt}],
+                response_model=ModelSelectionResponse,
+                max_retries=3
+            )
+            return response
+        except ValidationError as e:
+            logger.error(f"LLM response validation error (attempt {attempt+1}/3): {e}")
+            if attempt == retries:
+                raise
+        except Exception as e:
+            logger.error(f"LLM call failed (attempt {attempt+1}/3): {e}")
+            if attempt == retries:
+                raise
 
 # --------------------------------------------------------------------------- #
 # Public API                                                                  #
@@ -95,6 +134,8 @@ def run_model_agent(req: ModelSelectionRequest, preprocessing_code: str) -> Tupl
     Run the model selection agent to choose the best model and hyperparameters
     based on the provided dataset and selected features.
     """
+    logger.info("Model Selection Agent started with default parameters.")
+    start_time = time.time()
     logger.info(f"Processing request for dataset '{req.metadata.dataset_name}'")
 
     # 1. Build prompt
@@ -116,7 +157,10 @@ def run_model_agent(req: ModelSelectionRequest, preprocessing_code: str) -> Tupl
         raise e
 
     # 4. Return response
-    logger.info("Model selection completed successfully")
+    elapsed = time.time() - start_time
+    logger.info(f"Model Selection Agent finished after {elapsed:.2f} seconds. "
+                f"Selected model: {response.model_name}, hyperparameters: {response.hyperparameters}")
+    logger.info(f"Reasoning: {response.reasoning}")
     return response, pipe_blob
 
 def _build_training_pipeline(response: ModelSelectionResponse, preprocessing_code: str) -> str:

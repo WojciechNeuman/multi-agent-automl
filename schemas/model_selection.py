@@ -16,6 +16,9 @@ class ModelSelectionRequest(BaseModel):
     llm_config: LLMConfig = Field(
         default_factory=LLMConfig, description="Parameters used for the chat call."
     )
+    evaluation_conclusions: Optional[str] = Field(
+        None, description="Summary of previous evaluation results, if available."
+    )
 
 class ModelSelectionResponse(BaseModel):
     model_name: ModelEnum = Field(
