@@ -163,12 +163,21 @@ class PipelineController:
             logger.info(f"[EvaluationAgent] Finished in {elapsed:.2f}s. Recommendation: {decision.recommendation}, Confidence: {decision.confidence}")
             logger.info(f"[EvaluationAgent] Reasoning:\n{decision.reasoning}")
 
-            evaluation_conclusions = build_evaluation_conclusions(
+            iteration_evaluation_conclusions = build_evaluation_conclusions(
                 selected_features=self.selected_features,
                 model_name=self.model_name,
                 hyperparameters=self.model_hyperparams,
-                evaluation_decision=decision
+                evaluation_decision=decision,
+                iteration=iteration
             )
+            
+            if evaluation_conclusions is None:
+                evaluation_conclusions = iteration_evaluation_conclusions
+            else:
+                evaluation_conclusions += "\n\n" + iteration_evaluation_conclusions
+
+            logger.info(f"[EvaluationAgent] Iteration conclusions:\n{iteration_evaluation_conclusions}")
+            logger.info(f"[EvaluationAgent] Full evaluation conclusions:\n{evaluation_conclusions}")
 
             metric_value = current_metrics.get(f"test_{self.main_metric}", None)
             self.models_results.append({

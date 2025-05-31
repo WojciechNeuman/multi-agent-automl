@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import List, Dict, Any
 from pydantic import ValidationError
 import os
-import sys
 import instructor
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -29,11 +28,11 @@ _SYSTEM_ROLE = (
     "- optimization goal (e.g. maximize recall, avoid overfitting).\n\n"
 
     "You must thoroughly analyze the situation with the following expectations:\n"
-    "1. If the model's test performance is poor (<0.7) OR worse than training by >0.2, consider overfitting.\n"
-    "2. If metrics improve over time and gap between train/test is low, `continue` may be acceptable.\n"
-    "3. If stagnation or poor generalization is observed despite recent changes, suggest `switch_model` or `switch_features`.\n"
-    "4. `stop` should only be recommended when the performance is both good (e.g. test metric > 0.85) AND stable across iterations.\n"
-    "5. Avoid always choosing the default or first valid response — be skeptical and critical.\n\n"
+    "1. If the model's test performance is low (e.g. F1, accuracy, recall < 0.70) OR the difference between training and test metrics exceeds 0.15–0.20, treat it as a clear sign of overfitting. In such cases, avoid recommending `continue`.\n"
+    "2. If performance is improving across iterations and the train/test gap remains small (e.g. ≤ 0.10), then `continue` may be justified — but only with a clear rationale.\n"
+    "3. If results stagnate, degrade, or the model repeatedly shows poor generalization (e.g. high variance between train/test), recommend `switch_model` or `switch_features` — depending on what is more likely to be the root cause.\n"
+    "4. `stop` should only be suggested when the model consistently performs well (e.g. test metrics ≥ 0.85) and no meaningful improvements have been observed over multiple iterations.\n"
+    "5. Never default to the first valid recommendation. Compare current performance with history, apply critical judgment, and base your decision on metric dynamics and optimization goals.\n\n"
 
     "You MUST justify your recommendation clearly. Be brief, precise, and grounded in the provided metrics.\n\n"
 

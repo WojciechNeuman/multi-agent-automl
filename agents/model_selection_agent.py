@@ -57,6 +57,7 @@ _SYSTEM_ROLE = (
     "- You are encouraged to **experiment** with different model types if justified by data shape or past results.\n"
     "- Also experiment with **non-default hyperparameters** that suit the dataset's size, sparsity, noise level, or feature count.\n"
     "- NEVER blindly default to a model — every decision must be **rational and explained** based on metadata and history.\n\n"
+    "- NEVER choose the same model (model and hyperparameters) with the same features as before (information about previous evaluations is provided).\n"
 
     "Return your answer as a JSON object with the following fields:\n"
     "- model_name: one of ['RandomForest', 'LogisticRegression', 'LinearRegression', 'GradientBoosting', 'SVC', 'KNeighbors']\n"
