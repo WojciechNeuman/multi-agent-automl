@@ -13,6 +13,7 @@ import os
 import sys
 import instructor
 import base64
+import time
 
 import numpy as np
 import pandas as pd
@@ -183,6 +184,10 @@ def _call_llm(
 # Public API                                                                   #
 # --------------------------------------------------------------------------- #
 def run_feature_agent(req: FeatureSelectionRequest) -> FeatureSelectionResponse:
+    logger.info("Feature Agent started with default parameters: "
+                f"max_features={req.max_features}, selection_goal={getattr(req, 'selection_goal', None)}")
+    start_time = time.time()
+
     logger.info(f"Processing request for dataset '{req.metadata.dataset_name}'")
 
     # 1. Load and pre-filter sample
@@ -222,7 +227,10 @@ def run_feature_agent(req: FeatureSelectionRequest) -> FeatureSelectionResponse:
         raise
 
     # 6. Done
-    logger.info("Feature selection completed successfully")
+    elapsed = time.time() - start_time
+    logger.info(f"Feature Agent finished after {elapsed:.2f} seconds. "
+                f"Selected features: {[f.name for f in response.selected_features]}")
+    logger.info(f"Reasoning: {response.reasoning}")
     return FeatureSelectionResponse(
         selected_features=response.selected_features,
         preprocessing_code=pipe_blob,

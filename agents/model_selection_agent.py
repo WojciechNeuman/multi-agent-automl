@@ -12,6 +12,7 @@ from loguru import logger
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import ValidationError
+import time
 
 from schemas.model_selection import (
     ModelSelectionRequest,
@@ -95,6 +96,8 @@ def run_model_agent(req: ModelSelectionRequest, preprocessing_code: str) -> Tupl
     Run the model selection agent to choose the best model and hyperparameters
     based on the provided dataset and selected features.
     """
+    logger.info("Model Selection Agent started with default parameters.")
+    start_time = time.time()
     logger.info(f"Processing request for dataset '{req.metadata.dataset_name}'")
 
     # 1. Build prompt
@@ -116,7 +119,10 @@ def run_model_agent(req: ModelSelectionRequest, preprocessing_code: str) -> Tupl
         raise e
 
     # 4. Return response
-    logger.info("Model selection completed successfully")
+    elapsed = time.time() - start_time
+    logger.info(f"Model Selection Agent finished after {elapsed:.2f} seconds. "
+                f"Selected model: {response.model_name}, hyperparameters: {response.hyperparameters}")
+    logger.info(f"Reasoning: {response.reasoning}")
     return response, pipe_blob
 
 def _build_training_pipeline(response: ModelSelectionResponse, preprocessing_code: str) -> str:

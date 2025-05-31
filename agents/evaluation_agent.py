@@ -8,6 +8,7 @@ import instructor
 from openai import OpenAI
 from dotenv import load_dotenv
 from loguru import logger
+import time
 
 from schemas.evaluation import EvaluationRequest, EvaluationDecision
 from models.feature import FeatureSpec
@@ -15,7 +16,6 @@ from models.feature import FeatureSpec
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
-# Configure loguru (console + rotating file)
 logger.remove()
 logger.add("logs/evaluation_agent.log", rotation="10 MB", retention="7 days", level="DEBUG")
 logger.add(sys.stderr, level="INFO")
@@ -107,7 +107,9 @@ def run_evaluation_agent(
     Main entry point for the EvaluationAgent.
     Builds the context, sends it to the LLM, and returns the decision.
     """
+    logger.info("Evaluation Agent started processing.")
     logger.info(f"Running evaluation agent for dataset '{request.metadata.dataset_name}'")
+    start_time = time.time()
 
     ctx = LLMRunContext(
         current_metrics=current_metrics,
@@ -122,7 +124,9 @@ def run_evaluation_agent(
     logger.debug(f"Prompt content:\n{prompt}")
 
     decision = _call_llm(prompt)
-    logger.info(f"LLM decision: {decision.recommendation}")
-    logger.debug(f"LLM reasoning: {decision.reasoning}")
+    elapsed = time.time() - start_time
+    logger.info(f"Evaluation Agent finished after {elapsed:.2f} seconds. "
+                f"Recommendation: {decision.recommendation}")
+    logger.info(f"Reasoning: {decision.reasoning}")
 
     return decision
