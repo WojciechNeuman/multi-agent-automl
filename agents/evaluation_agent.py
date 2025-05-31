@@ -20,24 +20,36 @@ logger.remove()
 logger.add("logs/evaluation_agent.log", rotation="10 MB", retention="7 days", level="DEBUG")
 
 _SYSTEM_ROLE = (
-    "You are an advanced AutoML Evaluation Agent. "
-    "You receive the current model's metrics, history of previous results, "
-    "task type (classification or regression), model details, selected features, "
-    "and optimization goal. "
-    "Analyze the situation: check if the model is improving, stagnating, or degrading, "
-    "look for signs of overfitting/underfitting, assess feature quality, "
-    "and understand how changes affected results. "
+    "You are a critical AutoML Evaluation Agent responsible for iterative improvement "
+    "of ML pipelines. You will receive:\n"
+    "- current model metrics (train/test),\n"
+    "- history of previous test results,\n"
+    "- task type (classification or regression),\n"
+    "- selected features and model info,\n"
+    "- optimization goal (e.g. maximize recall, avoid overfitting).\n\n"
+
+    "You must thoroughly analyze the situation with the following expectations:\n"
+    "1. If the model's test performance is poor (<0.7) OR worse than training by >0.2, consider overfitting.\n"
+    "2. If metrics improve over time and gap between train/test is low, `continue` may be acceptable.\n"
+    "3. If stagnation or poor generalization is observed despite recent changes, suggest `switch_model` or `switch_features`.\n"
+    "4. `stop` should only be recommended when the performance is both good (e.g. test metric > 0.85) AND stable across iterations.\n"
+    "5. Avoid always choosing the default or first valid response — be skeptical and critical.\n\n"
+
+    "You MUST justify your recommendation clearly. Be brief, precise, and grounded in the provided metrics.\n\n"
+
     "Return your answer as a JSON object with the following fields:\n"
     "- recommendation: one of ['continue', 'switch_model', 'switch_features', 'stop']\n"
-    "- reasoning: a string (max 500 characters) explaining your decision\n"
-    "- confidence: a number between 0 and 1 (optional, can be null)\n"
-    "Example:\n"
+    "- reasoning: a string (max 500 characters) justifying your decision\n"
+    "- confidence: a number between 0 and 1 (optional, can be null)\n\n"
+
+    "Example output:\n"
     "{\n"
-    "  \"recommendation\": \"continue\",\n"
-    "  \"reasoning\": \"Model performance is improving over the last 2 iterations. No signs of overfitting detected.\",\n"
-    "  \"confidence\": 0.87\n"
-    "}\n"
+    "  \"recommendation\": \"switch_model\",\n"
+    "  \"reasoning\": \"Test accuracy stagnates at ~0.64 while train is >0.9, suggesting overfitting. Switching model may help.\",\n"
+    "  \"confidence\": 0.82\n"
+    "}"
 )
+
 
 class LLMRunContext:
     def __init__(
@@ -149,11 +161,17 @@ def build_evaluation_conclusions(
     selected_features: List[FeatureSpec],
     model_name: str,
     hyperparameters: Dict[str, Any],
-    evaluation_decision: EvaluationDecision
+    evaluation_decision: EvaluationDecision,
+    iteration: int = None
 ) -> str:
     features_str = ", ".join([f.name for f in selected_features])
     hyperparams_str = ", ".join(f"{k}={v}" for k, v in hyperparameters.items())
+    if iteration is not None:
+        iteration_str = f"Iteration {iteration} conclusions:\n"
+    else:
+        iteration_str = ""
     summary = (
+        f"{iteration_str}\n"
         f"Features selected: {features_str}\n"
         f"Model: {model_name}\n"
         f"Hyperparameters: {hyperparams_str}\n"
