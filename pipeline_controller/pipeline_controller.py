@@ -4,6 +4,8 @@ import base64
 import skops.io as sio
 import pandas as pd
 from typing import Dict, List
+from loguru import logger
+import time
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -16,6 +18,10 @@ from agents.evaluation_agent import run_evaluation_agent, build_evaluation_concl
 from utils.metrics_calculator import calculate_metrics
 
 from sklearn.model_selection import train_test_split
+
+logger.remove()
+logger.add(sys.stderr, level="INFO")
+logger.add("logs/pipeline_controller.log", rotation="10 MB", retention="7 days", level="DEBUG")
 
 class PipelineController:
     """
@@ -51,6 +57,7 @@ class PipelineController:
             basic_stats={},
             data_sample=sample,
             max_features=self.max_features,
+            evaluation_conclusions=evaluation_conclusions
         )
         feature_resp = run_feature_agent(feature_req)
         self.selected_features = feature_resp.selected_features
@@ -66,7 +73,8 @@ class PipelineController:
                 "target_column": self.target_column
             },
             selected_features=[f.name for f in self.selected_features],
-            data=sample
+            data=sample,
+            evaluation_conclusions=evaluation_conclusions
         )
         model_resp = run_model_agent(model_req, self.features_preprocessing_code)
         self.model_name = model_resp[0].model_name
@@ -128,23 +136,32 @@ class PipelineController:
         evaluation_conclusions = None
 
         for iteration in range(1, self.max_iterations + 1):
-            print(f"\n=== Iteration {iteration} ===")
+            logger.info(f"\n=== [ITERATION {iteration}] ===")
+
+            start = time.time()
+            logger.info("[FeatureAgent] Starting feature selection...")
             feature_resp = self.run_feature_selection(evaluation_conclusions)
-            print("Selected features:", [f.name for f in self.selected_features])
-            print("Feature agent reasoning:", feature_resp.reasoning)
+            elapsed = time.time() - start
+            logger.info(f"[FeatureAgent] Finished in {elapsed:.2f}s. Selected: {[f.name for f in self.selected_features]}")
+            logger.info(f"[FeatureAgent] Reasoning:\n{feature_resp.reasoning}")
 
+            start = time.time()
+            logger.info("[ModelAgent] Starting model selection...")
             model_resp = self.run_model_selection(evaluation_conclusions)
-            print("Selected model:", self.model_name)
-            print("Hyperparameters:", self.model_hyperparams)
-            print("Model agent reasoning:", model_resp[0].reasoning)
+            elapsed = time.time() - start
+            logger.info(f"[ModelAgent] Finished in {elapsed:.2f}s. Selected: {self.model_name} with {self.model_hyperparams}")
+            logger.info(f"[ModelAgent] Reasoning:\n{model_resp[0].reasoning}")
 
+            logger.info("[Training] Training and evaluating model...")
             current_metrics = self.train_and_evaluate()
-            print("Current metrics:", current_metrics)
+            logger.info(f"[Training] Metrics: {current_metrics}")
 
+            start = time.time()
+            logger.info("[EvaluationAgent] Starting evaluation...")
             decision = self.run_evaluation(current_metrics)
-            print("Recommendation:", decision.recommendation)
-            print("Reasoning:", decision.reasoning)
-            print("Confidence:", decision.confidence)
+            elapsed = time.time() - start
+            logger.info(f"[EvaluationAgent] Finished in {elapsed:.2f}s. Recommendation: {decision.recommendation}, Confidence: {decision.confidence}")
+            logger.info(f"[EvaluationAgent] Reasoning:\n{decision.reasoning}")
 
             evaluation_conclusions = build_evaluation_conclusions(
                 selected_features=self.selected_features,
@@ -153,7 +170,6 @@ class PipelineController:
                 evaluation_decision=decision
             )
 
-            # Save result for later selection
             metric_value = current_metrics.get(f"test_{self.main_metric}", None)
             self.models_results.append({
                 "metrics": current_metrics,
@@ -164,7 +180,6 @@ class PipelineController:
                 "recommendation": decision.recommendation
             })
 
-            # Track best model so far
             if metric_value is not None and metric_value > best_metric:
                 best_metric = metric_value
                 best_result = self.models_results[-1]
@@ -175,20 +190,19 @@ class PipelineController:
                     "features": [f.name for f in self.selected_features]
                 }
 
-            # Stop if agent says "stop"
             if decision.recommendation == "stop":
-                print("Agent recommended to stop. Ending iterations.")
+                logger.info("Agent recommended to stop. Ending iterations.")
                 break
 
-        print("\n=== BEST MODEL SUMMARY ===")
+        logger.info("\n=== [BEST MODEL SUMMARY] ===")
         if best_result:
-            print(f"Best model: {best_model_info['model_name']}")
-            print(f"Hyperparameters: {best_model_info['hyperparameters']}")
-            print(f"Features: {best_model_info['features']}")
-            print(f"Test {self.main_metric}: {best_metric}")
-            print(f"Reasoning: {best_reasoning}")
+            logger.info(f"Best model: {best_model_info['model_name']}")
+            logger.info(f"Hyperparameters: {best_model_info['hyperparameters']}")
+            logger.info(f"Features: {best_model_info['features']}")
+            logger.info(f"Test {self.main_metric}: {best_metric:.4f}")
+            logger.info(f"Reasoning: {best_reasoning}")
         else:
-            print("No valid model found.")
+            logger.warning("No valid model found.")
 
         return best_result
 

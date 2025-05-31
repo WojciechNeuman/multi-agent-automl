@@ -41,7 +41,7 @@ API_KEY = os.getenv("API_KEY")
 # Configure loguru (basic console + rotating file)
 logger.remove()
 logger.add("logs/feature_agent.log", rotation="10 MB", retention="7 days", level="DEBUG")
-logger.add(sys.stderr, level="INFO")
+
 
 # --------------------------------------------------------------------------- #
 # Pre-filters                                                                  #

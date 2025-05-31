@@ -32,7 +32,6 @@ API_KEY = os.getenv("API_KEY")
 # Configure loguru (basic console + rotating file)
 logger.remove()
 logger.add("logs/model_selection_agent.log", rotation="10 MB", retention="7 days", level="DEBUG")
-logger.add(sys.stderr, level="INFO")
 
 # --------------------------------------------------------------------------- #
 # LLM helpers                                                                 #

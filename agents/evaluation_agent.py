@@ -18,7 +18,6 @@ API_KEY = os.getenv("API_KEY")
 
 logger.remove()
 logger.add("logs/evaluation_agent.log", rotation="10 MB", retention="7 days", level="DEBUG")
-logger.add(sys.stderr, level="INFO")
 
 _SYSTEM_ROLE = (
     "You are an advanced AutoML Evaluation Agent. "
