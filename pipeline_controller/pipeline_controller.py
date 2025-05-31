@@ -22,7 +22,7 @@ class PipelineController:
     Orchestrates the full AutoML pipeline using the agent modules.
     """
 
-    def __init__(self, dataset_path: str, target_column: str, problem_type: str, max_features: int = 4):
+    def __init__(self, dataset_path: str, target_column: str, problem_type: str, max_features: int = 10, max_iterations: int = 5, main_metric: str = "accuracy"):
         self.dataset_path = dataset_path
         self.target_column = target_column
         self.problem_type = problem_type
@@ -36,6 +36,9 @@ class PipelineController:
         self.pipeline = None
         self.metrics_history: List[Dict[str, float]] = []
         self.optimization_goal = "Maximize Recall, avoid overfitting"
+        self.max_iterations = max_iterations
+        self.main_metric = main_metric
+        self.models_results = []
 
     def run_feature_selection(self):
         sample = self.df.head(500).to_dict(orient='list')
@@ -77,18 +80,13 @@ class PipelineController:
         return pipe
 
     def train_and_evaluate(self):
-        # Prepare data
         X = self.df.drop(columns=[self.target_column])
         y = self.df[self.target_column]
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-        # Load pipeline
         self.pipeline = self.decode_pipeline(self.model_preprocessing_code)
         self.pipeline.fit(X_train, y_train)
         y_train_pred = self.pipeline.predict(X_train)
         y_test_pred = self.pipeline.predict(X_test)
-
-        # Calculate metrics
         current_metrics = calculate_metrics(
             y_train_true=y_train,
             y_train_pred=y_train_pred,
@@ -123,31 +121,75 @@ class PipelineController:
         return decision
 
     def run_full_pipeline(self):
-        print("=== Feature Selection ===")
-        feature_resp = self.run_feature_selection()
-        print("Selected features:", [f.name for f in self.selected_features])
-        print("Feature agent reasoning:", feature_resp.reasoning)
+        best_result = None
+        best_metric = -float("inf")
+        best_reasoning = ""
+        best_model_info = None
 
-        print("\n=== Model Selection ===")
-        model_resp = self.run_model_selection()
-        print("Selected model:", self.model_name)
-        print("Hyperparameters:", self.model_hyperparams)
-        print("Model agent reasoning:", model_resp[0].reasoning)
+        for iteration in range(1, self.max_iterations + 1):
+            print(f"\n=== Iteration {iteration} ===")
+            feature_resp = self.run_feature_selection()
+            print("Selected features:", [f.name for f in self.selected_features])
+            print("Feature agent reasoning:", feature_resp.reasoning)
 
-        print("\n=== Training & Evaluation ===")
-        current_metrics = self.train_and_evaluate()
-        print("Current metrics:", current_metrics)
+            model_resp = self.run_model_selection()
+            print("Selected model:", self.model_name)
+            print("Hyperparameters:", self.model_hyperparams)
+            print("Model agent reasoning:", model_resp[0].reasoning)
 
-        print("\n=== Evaluation Agent ===")
-        decision = self.run_evaluation(current_metrics)
-        print("Recommendation:", decision.recommendation)
-        print("Reasoning:", decision.reasoning)
-        print("Confidence:", decision.confidence)
-        return decision
+            current_metrics = self.train_and_evaluate()
+            print("Current metrics:", current_metrics)
 
+            decision = self.run_evaluation(current_metrics)
+            print("Recommendation:", decision.recommendation)
+            print("Reasoning:", decision.reasoning)
+            print("Confidence:", decision.confidence)
+
+            # Save result for later selection
+            metric_value = current_metrics.get(f"test_{self.main_metric}", None)
+            self.models_results.append({
+                "metrics": current_metrics,
+                "model_name": self.model_name,
+                "hyperparameters": self.model_hyperparams,
+                "features": [f.name for f in self.selected_features],
+                "reasoning": decision.reasoning,
+                "recommendation": decision.recommendation
+            })
+
+            # Track best model so far
+            if metric_value is not None and metric_value > best_metric:
+                best_metric = metric_value
+                best_result = self.models_results[-1]
+                best_reasoning = decision.reasoning
+                best_model_info = {
+                    "model_name": self.model_name,
+                    "hyperparameters": self.model_hyperparams,
+                    "features": [f.name for f in self.selected_features]
+                }
+
+            # Stop if agent says "stop"
+            if decision.recommendation == "stop":
+                print("Agent recommended to stop. Ending iterations.")
+                break
+
+        print("\n=== BEST MODEL SUMMARY ===")
+        if best_result:
+            print(f"Best model: {best_model_info['model_name']}")
+            print(f"Hyperparameters: {best_model_info['hyperparameters']}")
+            print(f"Features: {best_model_info['features']}")
+            print(f"Test {self.main_metric}: {best_metric}")
+            print(f"Reasoning: {best_reasoning}")
+        else:
+            print("No valid model found.")
+
+        return best_result
+
+# Example usage:
 controller = PipelineController(
     dataset_path="../datasets/titanic.csv",
     target_column="Survived",
-    problem_type="classification"
+    problem_type="classification",
+    max_iterations=3,
+    main_metric="accuracy"
 )
 controller.run_full_pipeline()
