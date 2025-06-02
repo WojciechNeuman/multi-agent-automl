@@ -2,6 +2,7 @@
 
 ENV_NAME=multi_agent_automl
 ENV_FILE=environment.yml
+FRONTEND_DIR=frontend_ui
 
 .PHONY: help env activate run runserver test clean
 
@@ -14,6 +15,8 @@ help:
 	@echo "  make runserver  - Run the Django server"
 	@echo "  make test       - Run tests in the tests/ folder"
 	@echo "  make clean      - Remove __pycache__ and .pytest_cache"
+	@echo "  make install-frontend-deps - Install Node.js dependencies for the React frontend"
+	@echo "  make run-frontend - Start the React frontend development server"
 
 # Create Conda environment
 env:
@@ -35,6 +38,13 @@ run:
 runserver:
 	python web_multi_agent_automl/manage.py runserver
 
+# Install Node.js dependencies for the React frontend (assumes npm is installed)
+install-frontend-deps:
+	cd $(FRONTEND_DIR) && npm install
+
+run-frontend:
+	cd $(FRONTEND_DIR) && npm start
+
 # Run tests with pytest
 test:
 	pytest tests/
@@ -43,4 +53,3 @@ test:
 clean:
 	find . -type d -name "__pycache__" -exec rm -r {} +
 	rm -rf .pytest_cache
-
