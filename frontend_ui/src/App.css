@@ -1,0 +1,163 @@
+/* frontend_ui/src/App.css */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f4f7f6;
+  color: #333;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0;
+}
+
+.App {
+  max-width: 900px;
+  margin: 20px auto;
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.App-header {
+  text-align: center;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 30px;
+}
+
+.App-header h1 {
+  color: #2c3e50;
+  margin-bottom: 5px;
+}
+
+.App-header p {
+  color: #555;
+  font-size: 0.95em;
+}
+
+.App-main {
+  padding: 0 10px;
+}
+
+.pipeline-form .form-group {
+  margin-bottom: 20px;
+}
+
+.pipeline-form label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #34495e;
+}
+
+.pipeline-form input[type="text"],
+.pipeline-form input[type="file"],
+.pipeline-form select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-sizing: border-box;
+  font-size: 1em;
+  transition: border-color 0.2s ease-in-out;
+}
+
+.pipeline-form input[type="file"] {
+  padding: 8px; /* Specific padding for file input */
+}
+
+
+.pipeline-form input[type="text"]:focus,
+.pipeline-form input[type="file"]:focus,
+.pipeline-form select:focus {
+  border-color: #3498db;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.file-name-display {
+  display: block;
+  font-size: 0.85em;
+  color: #7f8c8d;
+  margin-top: 5px;
+}
+
+.submit-button {
+  background-color: #3498db;
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.1em;
+  font-weight: 600;
+  transition: background-color 0.2s ease;
+  display: block;
+  width: 100%;
+}
+
+.submit-button:hover {
+  background-color: #2980b9;
+}
+
+.submit-button:disabled {
+  background-color: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.error-message {
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #e57373;
+  padding: 15px;
+  border-radius: 6px;
+  margin-top: 20px;
+  text-align: center;
+}
+
+.loading-indicator {
+  text-align: center;
+  padding: 20px;
+  font-size: 1.1em;
+  color: #2980b9;
+}
+
+.results-section {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: #ecf0f1;
+  border: 1px solid #dadedf;
+  border-radius: 6px;
+}
+
+.results-section h2 {
+  color: #2c3e50;
+  margin-top: 0;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #bdc3c7;
+  padding-bottom: 10px;
+}
+
+.results-output {
+  background-color: #34495e; /* Darker background for code/json */
+  color: #ecf0f1; /* Light text */
+  padding: 15px;
+  border-radius: 4px;
+  overflow-x: auto; /* Allow horizontal scrolling for long lines */
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9em;
+  white-space: pre-wrap; /* Wrap long lines but preserve formatting */
+  word-break: break-all;
+}
+
+.App-footer {
+  text-align: center;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+  font-size: 0.9em;
+  color: #7f8c8d;
+}
