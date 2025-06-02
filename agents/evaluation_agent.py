@@ -34,6 +34,10 @@ _SYSTEM_ROLE = (
     "4. `stop` should only be suggested when the model consistently performs well (e.g. test metrics ≥ 0.85) and no meaningful improvements have been observed over multiple iterations.\n"
     "5. Never default to the first valid recommendation. Compare current performance with history, apply critical judgment, and base your decision on metric dynamics and optimization goals.\n\n"
 
+    "Metric direction assumptions:\n"
+    "- For classification: maximize accuracy, F1, recall, precision (higher is better)\n"
+    "- For regression: maximize R²; minimize MAE, MSE, RMSE (lower is better)\n\n"
+
     "You MUST justify your recommendation clearly. Be brief, precise, and grounded in the provided metrics.\n\n"
 
     "Return your answer as a JSON object with the following fields:\n"
@@ -48,7 +52,6 @@ _SYSTEM_ROLE = (
     "  \"confidence\": 0.82\n"
     "}"
 )
-
 
 class LLMRunContext:
     def __init__(
