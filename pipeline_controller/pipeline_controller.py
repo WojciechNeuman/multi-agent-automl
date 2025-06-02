@@ -147,6 +147,12 @@ class PipelineController:
         best_reasoning = ""
         best_model_info = None
         evaluation_conclusions = None
+        logger.info("=== [PIPELINE STARTED] ===")
+        logger.info(f"Dataset: {self.dataset_path}")
+        logger.info(f"Target column: {self.target_column}")
+        logger.info(f"Problem type: {self.problem_type}")
+        logger.info(f"Max iterations: {self.max_iterations}")
+        logger.info(f"Main metric: {self.main_metric}")
 
         for iteration in range(1, self.max_iterations + 1):
             logger.info(f"\n=== [ITERATION {iteration}] ===")

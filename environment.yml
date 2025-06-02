@@ -15,6 +15,7 @@ dependencies:
   - pip
   - pip:
       - django
+      - django-cors-headers
       - openai
       - pytest
       - tqdm

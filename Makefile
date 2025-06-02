@@ -33,7 +33,7 @@ run:
 
 # Run Django server (from the web/ directory)
 runserver:
-	cd web && python manage.py runserver
+	python web_multi_agent_automl/manage.py runserver
 
 # Run tests with pytest
 test:
