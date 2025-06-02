@@ -95,6 +95,6 @@ class FeatureSelectionResponse(BaseModel):
     )
     reasoning: str = Field(
         ...,
-        max_length=500,
-        description="≤500-word rationale summarised from the LLM answer.",
+        max_length=1000,
+        description="Rationale summarised from the LLM answer.",
     )

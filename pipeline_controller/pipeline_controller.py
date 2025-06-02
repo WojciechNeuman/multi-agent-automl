@@ -28,7 +28,7 @@ class PipelineController:
     Orchestrates the full AutoML pipeline using the agent modules.
     """
 
-    def __init__(self, dataset_path: str, target_column: str, problem_type: str, max_features: int = 10, max_iterations: int = 5, main_metric: str = "accuracy"):
+    def __init__(self, dataset_path: str, target_column: str, problem_type: str, main_metric: str, optimization_goal: str = "Avoid underfitting and overfitting.", max_features: int = 10, max_iterations: int = 5):
         self.dataset_path = dataset_path
         self.target_column = target_column
         self.problem_type = problem_type
@@ -41,7 +41,7 @@ class PipelineController:
         self.model_preprocessing_code = None
         self.pipeline = None
         self.metrics_history: List[Dict[str, float]] = []
-        self.optimization_goal = "Maximize Recall, avoid overfitting"
+        self.optimization_goal = optimization_goal
         self.max_iterations = max_iterations
         self.main_metric = main_metric
         self.models_results = []
@@ -127,6 +127,19 @@ class PipelineController:
             optimization_goal=self.optimization_goal
         )
         return decision
+    
+    def is_better(self, new_value: float, best_value: float) -> bool:
+        minimize_metrics = {"mae", "mse", "rmse"}
+        maximize_metrics = {"accuracy", "f1", "precision", "recall", "r2"}
+
+        metric = self.main_metric.lower()
+        if metric in minimize_metrics:
+            return new_value < best_value
+        elif metric in maximize_metrics:
+            return new_value > best_value
+        else:
+            logger.warning(f"Unknown metric direction for '{self.main_metric}', defaulting to maximize.")
+            return new_value > best_value
 
     def run_full_pipeline(self):
         best_result = None
@@ -189,7 +202,7 @@ class PipelineController:
                 "recommendation": decision.recommendation
             })
 
-            if metric_value is not None and metric_value > best_metric:
+            if metric_value is not None and (best_result is None or self.is_better(metric_value, best_metric)):
                 best_metric = metric_value
                 best_result = self.models_results[-1]
                 best_reasoning = decision.reasoning
