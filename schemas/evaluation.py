@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional, Literal
 from .shared import Metadata
 from models.model import ModelEnum
 from models.feature import FeatureSpec
+from schemas.shared import LLMConfig
 
 class EvaluationRequest(BaseModel):
     metadata: Metadata = Field(
@@ -17,7 +18,9 @@ class EvaluationRequest(BaseModel):
     hyperparameters: Dict[str, Any] = Field(
         ..., description="Hyperparameter configuration for the selected model."
     )
-
+    llm_config: LLMConfig = Field(
+        default_factory=LLMConfig, description="Parameters used for the chat call."
+    )
 class EvaluationResponse(BaseModel):
     reasoning: str = Field(
         ..., description="Summary of the model's performance and interpretation of the results."

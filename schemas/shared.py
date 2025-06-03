@@ -1,5 +1,12 @@
+import os
 from typing import Literal, Optional
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+
+load_dotenv()
+model_name = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
+model_temperature = float(os.getenv("MODEL_TEMPERATURE", 0.8))
+model_max_tokens = int(os.getenv("MAX_TOKENS", 1024))
 
 class Metadata(BaseModel):
     dataset_name: str = Field(
@@ -19,11 +26,11 @@ class LLMConfig(BaseModel):
     """Parameters controlling the underlying chat completion request."""
 
     model: str = Field(
-        default="gpt-3.5-turbo", description="OpenAI-compatible model name."
+        default=model_name, description="OpenAI-compatible model name."
     )
     temperature: float = Field(
-        default=0.8, ge=0, le=2, description="Sampling temperature."
+        default=model_temperature, ge=0, le=2, description="Sampling temperature."
     )
     max_tokens: int = Field(
-        default=1024, ge=128, le=8192, description="Maximum tokens in the response."
+        default=model_max_tokens, ge=128, le=8192, description="Maximum tokens in the response."
     )
