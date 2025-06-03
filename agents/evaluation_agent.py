@@ -94,18 +94,19 @@ def _build_prompt(ctx: LLMRunContext) -> str:
         lines.append("- No previous iterations.")
     return "\n".join(lines)
 
-def _call_llm(prompt: str, retries: int = 3) -> EvaluationDecision:
+def _call_llm(req: EvaluationRequest, prompt: str, retries: int = 3) -> EvaluationDecision:
     """
     Call the LLM with the given prompt and return the response.
     Retries up to 3 times on ValidationError or Exception.
     """
     for attempt in range(1, retries + 1):
         try:
+            logger.info(f'[EvaluationAgent] {req.llm_config.model}, {req.llm_config.temperature}, {req.llm_config.max_tokens}')
             client = instructor.from_openai(OpenAI(api_key=API_KEY))
             response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                temperature=0.2,
-                max_tokens=512,
+                model=req.llm_config.model,
+                temperature=req.llm_config.temperature,
+                max_tokens=req.llm_config.max_tokens,
                 messages=[
                     {"role": "system", "content": _SYSTEM_ROLE},
                     {"role": "user", "content": prompt}
@@ -149,7 +150,7 @@ def run_evaluation_agent(
     logger.debug(f"Prompt length: {len(prompt)} characters")
     logger.debug(f"Prompt content:\n{prompt}")
 
-    decision = _call_llm(prompt)
+    decision = _call_llm(request, prompt)
     logger.info('[EvaluationAgent] Evaluation Agent received response successfully.')
     logger.debug(f"LLM response:\n{decision}")
     elapsed = time.time() - start_time
