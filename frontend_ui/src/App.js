@@ -83,7 +83,6 @@ function App() {
     const fetchPipelineResults = async (currentRunId) => {
         if (!currentRunId) return;
         try {
-            setLogs(prev => [...prev, "Fetching final results..."]);
             const resultApiUrl = `http://localhost:8000/api/pipeline-result/${currentRunId}/`;
             const response = await axios.get(resultApiUrl);
 
