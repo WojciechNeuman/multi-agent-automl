@@ -135,8 +135,7 @@ def run_evaluation_agent(
     Main entry point for the EvaluationAgent.
     Builds the context, sends it to the LLM, and returns the decision.
     """
-    logger.info("Evaluation Agent started processing.")
-    logger.info(f"Running evaluation agent for dataset '{request.metadata.dataset_name}'")
+    logger.info("[EvaluationAgent] Starting evaluation process.")
     start_time = time.time()
 
     ctx = LLMRunContext(
@@ -148,14 +147,16 @@ def run_evaluation_agent(
         optimization_goal=optimization_goal
     )
     prompt = _build_prompt(ctx)
-    logger.info(f"Prompt length: {len(prompt)} characters")
+    logger.debug(f"Prompt length: {len(prompt)} characters")
     logger.debug(f"Prompt content:\n{prompt}")
 
     decision = _call_llm(prompt)
+    logger.info(f'[EvaluationAgent] Evaluation Agent received response successfully.')
+    logger.debug(f"LLM response:\n{decision}")
     elapsed = time.time() - start_time
-    logger.info(f"Evaluation Agent finished after {elapsed:.2f} seconds. "
+    logger.info(f"[EvaluationAgent] Evaluation Agent finished after {elapsed:.2f} seconds. "
                 f"Recommendation: {decision.recommendation}")
-    logger.info(f"Reasoning: {decision.reasoning}")
+    logger.info(f"[EvaluationAgent] Reasoning: {decision.reasoning}")
 
     return decision
 

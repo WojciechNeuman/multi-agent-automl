@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './App.css';
+import LogStreamPanel from './components/LogStreamPanel';
 
-// Helper component to display metrics nicely
 const MetricsDisplay = ({ metrics }) => {
     if (!metrics || typeof metrics !== 'object') {
         return <p>No metrics data available.</p>;
@@ -19,7 +19,6 @@ const MetricsDisplay = ({ metrics }) => {
     );
 };
 
-// Helper component to display a list of items (like features)
 const ListDisplay = ({ items, title }) => {
     if (!items || !Array.isArray(items) || items.length === 0) {
         return <p>No {title.toLowerCase()} data available.</p>;
@@ -38,7 +37,6 @@ const ListDisplay = ({ items, title }) => {
 
 
 function App() {
-    // Form inputs
     const [csvFile, setCsvFile] = useState(null);
     const [targetColumn, setTargetColumn] = useState('Survived');
     const [problemType, setProblemType] = useState('classification');
@@ -46,13 +44,11 @@ function App() {
     const [mainMetric, setMainMetric] = useState('accuracy');
     const [fileName, setFileName] = useState('');
 
-    // Pipeline state
     const [runId, setRunId] = useState(null);
     const [isPipelineRunning, setIsPipelineRunning] = useState(false);
     const [logs, setLogs] = useState([]);
     const [error, setError] = useState('');
     
-    // Results
     const [bestResult, setBestResult] = useState(null);
     const [pipelineStructure, setPipelineStructure] = useState('');
 
@@ -94,7 +90,6 @@ function App() {
             if (response.data.status === 'completed') {
                 setBestResult(response.data.best_result);
                 setPipelineStructure(response.data.pipeline_structure);
-                setLogs(prev => [...prev, "Results received."]);
                 setError('');
             } else if (response.data.status === 'failed') {
                 setError(`Pipeline failed: ${response.data.error || 'Unknown error'}`);
@@ -115,14 +110,12 @@ function App() {
         if (runId && isPipelineRunning) {
             const logStreamUrl = `http://localhost:8000/api/log-stream/${runId}/`;
             eventSourceRef.current = new EventSource(logStreamUrl);
-            setLogs(prev => [...prev, `Connecting to log stream for run ID: ${runId}`]);
 
             eventSourceRef.current.onmessage = (event) => {
                 setLogs(prevLogs => [...prevLogs, event.data]);
             };
 
             eventSourceRef.current.addEventListener('end', (event) => {
-                setLogs(prevLogs => [...prevLogs, "Log stream ended by server."]);
                 if (eventSourceRef.current) {
                     eventSourceRef.current.close();
                     eventSourceRef.current = null;
@@ -150,7 +143,6 @@ function App() {
             if (eventSourceRef.current) {
                 eventSourceRef.current.close();
                 eventSourceRef.current = null;
-                // setLogs(prev => [...prev, "Log stream disconnected."]); // Can be noisy
             }
         }
         return () => {
@@ -244,17 +236,14 @@ function App() {
                 {(logs.length > 0 || isPipelineRunning) && (
                     <div className="logs-section results-section">
                         <h2>Pipeline Logs</h2>
-                        <pre className="logs-output results-output">
-                            {logs.join('\n')}
-                            <div ref={logsEndRef} />
-                        </pre>
+                        <LogStreamPanel logs={logs} />
                     </div>
                 )}
 
                 {!isPipelineRunning && bestResult && (
-                    <div className="results-section best-result-details"> {/* Added specific class */}
+                    <div className="results-section best-result-details"> {}
                         <h2>Best Result</h2>
-                        <div className="result-content-padding"> {/* Added padding wrapper */}
+                        <div className="result-content-padding"> {}
                             <p><strong>Model:</strong> {bestResult.model_name || 'N/A'}</p>
                             
                             {bestResult.hyperparameters && Object.keys(bestResult.hyperparameters).length > 0 && (
@@ -266,7 +255,7 @@ function App() {
                                 </div>
                             )}
                              {bestResult.hyperparameters && Object.keys(bestResult.hyperparameters).length === 0 && (
-                                <p><strong>Hyperparameters:</strong> Default or N/A</p>
+                                <p><strong>Hyperparameters:</strong> Default</p>
                             )}
 
 
@@ -286,9 +275,9 @@ function App() {
                 )}
 
                 {!isPipelineRunning && pipelineStructure && (
-                    <div className="results-section pipeline-structure-details"> {/* Added specific class */}
+                    <div className="results-section pipeline-structure-details"> {}
                         <h2>Pipeline Structure</h2>
-                        {/* The <pre> tag is good for scikit-learn's default pipeline string representation */}
+                        {}
                         <pre className="results-output pipeline-structure-output">
                             {pipelineStructure}
                         </pre>

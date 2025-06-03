@@ -1,0 +1,21 @@
+.log-panel {
+  background-color: #1e1e1e;
+  color: #ffffff;
+  font-family: monospace;
+  font-size: 0.875rem;
+  border-radius: 8px;
+  padding: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  box-shadow: 0 0 5px rgba(0,0,0,0.3);
+}
+
+.log-line { margin-bottom: 4px; }
+
+.feature-agent { color: #64b5f6; }
+.model-agent { color: #81c784; }
+.evaluation-agent { color: #ffd54f; }
+.training { color: #ba68c8; }
+.error { color: #e57373; }
+.default { color: #cccccc; }

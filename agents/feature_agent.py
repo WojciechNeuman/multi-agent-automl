@@ -213,66 +213,57 @@ def _call_llm(req: FeatureSelectionRequest, prompt: str, retries: int = 3) -> Fe
             if attempt == retries:
                 raise
 
-# --------------------------------------------------------------------------- #
-# Public API                                                                   #
-# --------------------------------------------------------------------------- #
 def run_feature_agent(req: FeatureSelectionRequest) -> FeatureSelectionResponse:
-    logger.info("Feature Agent started with default parameters: "
-                f"max_features={req.max_features}, selection_goal={getattr(req, 'selection_goal', None)}")
+    logger.info("[FeatureAgent] Starting feature selection process")
+    logger.info(
+        "[FeatureAgent] Feature Agent will try to choose the best possible parameters, it will choose "
+        f"maximum {req.max_features} features. Its goal is: {getattr(req, 'selection_goal', None)}"
+    )
     start_time = time.time()
 
-    logger.info(f"Processing request for dataset '{req.metadata.dataset_name}'")
+    logger.info(f"[FeatureAgent] Processing request for dataset '{req.metadata.dataset_name.split('_')[-1]}'")
 
-    # 1. Load and pre-filter sample
     df = pd.DataFrame.from_dict(req.data_sample)
     df = _drop_constant_cols(df)
     logger.debug(f"Dataframe shape after constant column drop: {df.shape}")
 
-    # 2. Stats (compute if missing)
     if not req.basic_stats:
-        logger.info("Computing basic stats...")
+        logger.debug("Computing basic stats...")
         stats = compute_basic_stats(df, target_name=req.metadata.target_column)
         logger.debug(f"Computed stats: {len(stats)} features")
     else:
         stats = req.basic_stats
 
-    # 3. Recommend top-MI features
     recommended = _mutual_info_topk(
         df, req.metadata.target_column, req.metadata.problem_type, k=10
     )
-    logger.info(f"Top MI-recommended features: {recommended}")
+    logger.debug(f"Top MI-recommended features: {recommended}")
 
-    # 4. Build prompt + call LLM
     prompt = _build_prompt(req, stats, recommended)
-    logger.info(f"Prompt length: {len(prompt)} characters")
+    logger.debug(f"Prompt length: {len(prompt)} characters")
     logger.debug(f"Prompt content:\n{prompt}")
 
     response = _call_llm(req, prompt)
-    logger.info("LLM response received successfully")
+    logger.info("[FeatureAgent] Feature Agent received response successfully")
     logger.debug(f"LLM response:\n{response}")
 
-    # 5. Build pipeline (simple baseline)
     try:
         pipe_blob = _build_pipeline_blob(df, response.selected_features)
-        logger.info(f"Pipeline serialized to {len(pipe_blob)} bytes")
+        logger.debug(f"Pipeline serialized to {len(pipe_blob)} bytes")
     except Exception as e:
         logger.exception("Pipeline serialization failed")
         raise
 
-    # 6. Done
     elapsed = time.time() - start_time
-    logger.info(f"Feature Agent finished after {elapsed:.2f} seconds. "
+    logger.info(f"[FeatureAgent] Feature Agent finished after {elapsed:.2f} seconds. "
                 f"Selected features: {[f.name for f in response.selected_features]}")
-    logger.info(f"Reasoning: {response.reasoning}")
+    logger.info(f"[FeatureAgent] Feature Agent chose the above-mentioned features because: {response.reasoning}")
     return FeatureSelectionResponse(
         selected_features=response.selected_features,
         preprocessing_code=pipe_blob,
         reasoning=response.reasoning,
     )
 
-# --------------------------------------------------------------------------- #
-# Helpers – pipeline, reasoning                                               #
-# --------------------------------------------------------------------------- #
 def _build_pipeline_blob(df: pd.DataFrame, specs: List[FeatureSpec]) -> str:
     try:
         num_cols = [s.name for s in specs if s.dtype == "numeric" and s.name in df.columns]
@@ -293,10 +284,9 @@ def _build_pipeline_blob(df: pd.DataFrame, specs: List[FeatureSpec]) -> str:
             remainder="drop",
         )
 
-        # Serialize as a binary blob, then base64-encode for safe JSON transport
         binary_blob = sio.dumps(pipe)
         base64_blob = base64.b64encode(binary_blob).decode("ascii")
-        logger.info(f"Pipeline blob generated with {len(binary_blob)} bytes")
+        logger.debug(f"Pipeline blob generated with {len(binary_blob)} bytes")
         return base64_blob
 
     except Exception as e:

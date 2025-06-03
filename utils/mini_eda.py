@@ -32,7 +32,6 @@ def compute_basic_stats(
     Extracts rich feature statistics for LLM prompt building.
     Handles numeric, categorical, text, and datetime columns.
     """
-    logger.info(f"Computing basic stats for {df.shape[1]} features")
     stats = {}
     target = df[target_name] if target_name in df.columns else None
 
@@ -98,6 +97,4 @@ def compute_basic_stats(
         stats[col] = FeatureOverview(**kw)
         logger.debug(f"Stats for {col}: {kw}")
 
-    logger.info(f"Basic stats computed for {len(stats)} features")
     return stats
-
