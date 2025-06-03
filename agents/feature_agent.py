@@ -40,9 +40,6 @@ API_KEY = os.getenv("API_KEY")
 
 logger.remove()
 
-# --------------------------------------------------------------------------- #
-# Pre-filters                                                                  #
-# --------------------------------------------------------------------------- #
 def _drop_constant_cols(df: pd.DataFrame) -> pd.DataFrame:
     """Remove columns with a single unique value (after NA drop)."""
     return df.loc[:, df.nunique(dropna=True) > 1]
@@ -65,10 +62,6 @@ def _mutual_info_topk(
     top_idx = np.argsort(mi)[::-1][:k]
     return x_num.columns[top_idx].tolist()
 
-
-# --------------------------------------------------------------------------- #
-# LLM helpers                                                                  #
-# --------------------------------------------------------------------------- #
 _SYSTEM_ROLE = (
     "You are a senior Feature Engineering Assistant. "
     "You will receive a compact description of a dataset's columns, "
@@ -104,7 +97,6 @@ _SYSTEM_ROLE = (
     "}"
 )
 
-
 def _build_prompt(
     req: FeatureSelectionRequest,
     stats: dict,
@@ -125,10 +117,8 @@ def _build_prompt(
     ]
 
     for col, meta in stats.items():
-        # Shared fields
         line = f"- {col}: type={meta.dtype}, miss={meta.missing_pct:.1%}, card={meta.cardinality}"
         
-        # Numeric extensions
         if meta.dtype == "numeric":
             line += (
                 f", mean={meta.mean:.2f}, median={meta.median:.2f}, "
@@ -136,13 +126,11 @@ def _build_prompt(
                 f"min={meta.min_val:.2f}, max={meta.max_val:.2f}"
             )
         
-        # Categorical extensions
         elif meta.dtype == "categorical":
             line += (
                 f", top_freq={meta.top_freq:.1%}, rare_pct={meta.rare_pct:.1%}"
             )
         
-        # Text extensions
         elif meta.dtype == "text":
             line += (
                 f", avg_length={meta.avg_length:.1f}"
@@ -150,16 +138,13 @@ def _build_prompt(
             if meta.lang_detected:
                 line += f", lang={meta.lang_detected}"
         
-        # Date-time extensions
         elif meta.dtype == "datetime":
             if meta.span_days is not None:
                 line += f", span_days={meta.span_days}"
 
-        # Correlation to target (if available)
         if meta.corr_target is not None:
             line += f", corr≈{meta.corr_target:.2f}"
         
-        # Add to output
         lines.append(line)
 
     df_full = pd.DataFrame.from_dict(req.data_sample)

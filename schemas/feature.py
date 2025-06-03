@@ -31,7 +31,6 @@ class FeatureOverview(BaseModel):
     missing_pct: float
     cardinality: int
 
-    # Numeric-only
     mean: Optional[float] = None
     median: Optional[float] = None
     std: Optional[float] = None
@@ -41,15 +40,12 @@ class FeatureOverview(BaseModel):
     max_val: Optional[float] = None
     corr_target: Optional[float] = None
 
-    # Categorical-only
     top_freq: Optional[float] = None
     rare_pct: Optional[float] = None
 
-    # Text-only
     avg_length: Optional[float] = None
     lang_detected: Optional[str] = None
 
-    # Date-time only
     span_days: Optional[int] = None
 
 

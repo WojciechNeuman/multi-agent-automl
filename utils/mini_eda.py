@@ -47,14 +47,12 @@ def compute_basic_stats(
             else "categorical"
         )
 
-        # Shared stats
         kw = dict(
             dtype=dtype,
             missing_pct=float(s.isna().mean()),
             cardinality=int(s.nunique(dropna=True)),
         )
 
-        # Numeric extensions
         if dtype == "numeric":
             kw.update(
                 mean=float(s.mean()),
@@ -66,7 +64,6 @@ def compute_basic_stats(
                 max_val=float(s.max()),
             )
 
-        # Categorical extensions
         elif dtype == "categorical":
             vc = s.value_counts(normalize=True)
             if not vc.empty:
@@ -75,20 +72,17 @@ def compute_basic_stats(
                     rare_pct=float((vc < 0.01).mean()),
                 )
 
-        # Text extensions
         elif dtype == "text":
             lengths = s.dropna().str.len()
             kw.update(
                 avg_length=float(lengths.mean()),
             )
 
-        # Date-time extensions
         elif dtype == "datetime":
             kw.update(
                 span_days=(s.max() - s.min()).days if not s.empty else None
             )
 
-        # Correlation (if target is provided and valid)
         if target is not None:
             corr = _quick_corr(s, target)
             if corr is not None:
