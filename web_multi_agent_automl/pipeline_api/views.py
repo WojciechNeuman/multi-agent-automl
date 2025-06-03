@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
+from sklearn.utils import estimator_html_repr
 
 from pipeline_controller.pipeline_controller import PipelineController
 from .log_streaming import log_queues, pipeline_results_store, sse_log_sink_for_loguru, END_OF_LOGS_SIGNAL
@@ -51,7 +52,8 @@ def run_pipeline_background_logic(run_id, dataset_file_path, target_column, prob
         pipeline_results_store[run_id] = {
             'status': 'completed',
             'best_result': best_result_data,
-            'pipeline_structure': pipeline_structure_string
+            'pipeline_structure': pipeline_structure_string,
+            '_controller_instance': controller,
         }
 
     except Exception as e:
@@ -69,7 +71,6 @@ def run_pipeline_background_logic(run_id, dataset_file_path, target_column, prob
                 logger.debug(f"[{run_id}] Cleaned up temporary dataset file: {dataset_file_path}")
             except Exception as e_remove:
                 logger.error(f"[{run_id}] Error cleaning up temp file {dataset_file_path}: {e_remove}")
-
 
 @csrf_exempt
 def run_pipeline_start_view(request):
@@ -121,3 +122,20 @@ def get_pipeline_result_view(request, run_id):
             return JsonResponse({'status': result.get('status', 'running')})
     else:
         return JsonResponse({'status': 'not_found', 'error': 'No result found for this run_id.'}, status=404)
+    
+@csrf_exempt
+def get_pipeline_diagram_view(request, run_id):
+    result = pipeline_results_store.get(run_id)
+    if result and result["status"] == "completed":
+        controller = result.get("_controller_instance")
+        if controller and hasattr(controller, "pipeline"):
+            try:
+                html = estimator_html_repr(controller.pipeline)
+                return JsonResponse({'status': 'ok', 'html': html})
+            except Exception as e:
+                return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Pipeline not available.'}, status=404)
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Run ID not completed or not found.'}, status=404)
+

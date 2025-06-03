@@ -51,6 +51,7 @@ function App() {
     
     const [bestResult, setBestResult] = useState(null);
     const [pipelineStructure, setPipelineStructure] = useState('');
+    const [pipelineHtml, setPipelineHtml] = useState('');
 
     const eventSourceRef = useRef(null);
     const logsEndRef = useRef(null);
@@ -153,6 +154,21 @@ function App() {
         };
     }, [runId, isPipelineRunning]);
 
+useEffect(() => {
+    const fetchHtml = async () => {
+        if (runId && !isPipelineRunning) {
+            try {
+                const response = await axios.get(`http://localhost:8000/api/pipeline-diagram/${runId}/`);
+                if (response.data.status === 'ok') {
+                    setPipelineHtml(response.data.html);
+                }
+            } catch (err) {
+                console.error('Failed to fetch pipeline diagram:', err);
+            }
+        }
+    };
+    fetchHtml();
+}, [runId, isPipelineRunning]);
 
     const handleSubmit = async (event) => {
         event.preventDefault();
@@ -283,6 +299,18 @@ function App() {
                         </pre>
                     </div>
                 )}
+
+                {!isPipelineRunning && pipelineHtml && (
+                    <div className="results-section pipeline-visualization">
+                        <h2>Pipeline Visualization</h2>
+                        <iframe
+                            srcDoc={pipelineHtml}
+                            style={{ width: '100%', height: '600px', border: '1px solid #ccc' }}
+                            title="Pipeline Diagram"
+                        />
+                    </div>
+                )}
+
             </main>
             <footer className="App-footer">
                 <p>&copy; {new Date().getFullYear()} Multi-Agent AutoML Project</p>
