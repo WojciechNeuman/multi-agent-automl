@@ -223,7 +223,7 @@ function App() {
                         <label htmlFor="mainMetric">Main Metric:</label>
                         <select id="mainMetric" value={mainMetric} onChange={(e) => setMainMetric(e.target.value)} disabled={isPipelineRunning}>
                             <option value="accuracy">Accuracy</option><option value="precision">Precision</option><option value="recall">Recall</option><option value="f1_score">F1-score</option><option value="roc_auc">ROC AUC</option>
-                            <option value="mse">MSE (for regression)</option><option value="mae">MAE (for regression)</option><option value="r2_score">R2 Score</option>
+                            <option value="rmse">RMSE (for regression)</option><option value="mae">MAE (for regression)</option><option value="r2_score">R2 Score</option>
                         </select>
                     </div>
                     <button type="submit" disabled={isPipelineRunning} className="submit-button">

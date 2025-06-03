@@ -36,7 +36,7 @@ _SYSTEM_ROLE = (
 
     "Metric direction assumptions:\n"
     "- For classification: maximize accuracy, F1, recall, precision (higher is better)\n"
-    "- For regression: maximize R²; minimize MAE, MSE, RMSE (lower is better)\n\n"
+    "- For regression: maximize R²; minimize MAE, RMSE (lower is better)\n\n"
 
     "You MUST justify your recommendation clearly. Be brief, precise, and grounded in the provided metrics.\n\n"
 
