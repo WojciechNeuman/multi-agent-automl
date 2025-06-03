@@ -1,5 +1,4 @@
 import queue
-import time
 from django.http import StreamingHttpResponse
 
 # Global dictionaries to store log queues and results per run
@@ -64,8 +63,10 @@ def log_stream_sse_view(request, run_id):
             if run_id in log_queues:
                 # Empty the queue before deleting to ensure producer (if stuck) doesn't block
                 while not log_queues[run_id].empty():
-                    try: log_queues[run_id].get_nowait()
-                    except queue.Empty: break
+                    try: 
+                        log_queues[run_id].get_nowait()
+                    except queue.Empty: 
+                        break
                 del log_queues[run_id]
             print(f"SSE Stream cleaned up for run_id: {run_id}")
 

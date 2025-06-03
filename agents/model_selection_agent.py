@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import os
-import sys
-import json
 import base64
 import instructor
 from sklearn.pipeline import Pipeline
@@ -28,13 +26,8 @@ from sklearn.neighbors import KNeighborsClassifier
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
-# Configure loguru (basic console + rotating file)
 logger.remove()
-logger.add("logs/model_selection_agent.log", rotation="10 MB", retention="7 days", level="DEBUG")
 
-# --------------------------------------------------------------------------- #
-# LLM helpers                                                                 #
-# --------------------------------------------------------------------------- #
 _SYSTEM_ROLE = (
     "You are a senior Model Selection Assistant. "
     "You will receive a compact description of a dataset's columns, "
@@ -78,10 +71,10 @@ def _build_prompt(req: ModelSelectionRequest) -> str:
     """
     Compose a compact, LLM-friendly prompt for model selection.
     """
-    logger.info("Building the prompt for model selection.")
+    logger.debug("Building the prompt for model selection.")
 
     lines = [
-        f"## Dataset Metadata",
+        "## Dataset Metadata",
         f"- Dataset Name: {req.metadata.dataset_name}",
         f"- Problem Type: {req.metadata.problem_type}",
         f"- Target Column: {req.metadata.target_column}",
@@ -126,41 +119,33 @@ def _call_llm(req: ModelSelectionRequest, prompt: str, retries: int = 3) -> Mode
             if attempt == retries:
                 raise
 
-# --------------------------------------------------------------------------- #
-# Public API                                                                  #
-# --------------------------------------------------------------------------- #
 def run_model_agent(req: ModelSelectionRequest, preprocessing_code: str) -> Tuple[ModelSelectionResponse, str]:
     """
     Run the model selection agent to choose the best model and hyperparameters
     based on the provided dataset and selected features.
     """
-    logger.info("Model Selection Agent started with default parameters.")
+    logger.info("[ModelAgent] Starting model selection process.")
     start_time = time.time()
-    logger.info(f"Processing request for dataset '{req.metadata.dataset_name}'")
 
-    # 1. Build prompt
     prompt = _build_prompt(req)
-    logger.info(f"Prompt length: {len(prompt)} characters")
+    logger.debug(f"Prompt length: {len(prompt)} characters")
     logger.debug(f"Prompt content:\n{prompt}")
 
-    # 2. Call LLM``
     response = _call_llm(req, prompt)
-    logger.info("LLM response received successfully")
+    logger.info("[ModelAgent] Model Agent received response from LLM successfully.")
     logger.debug(f"LLM response:\n{response}")
 
-    # 3. Build pipeline
     try:
         pipe_blob = _build_training_pipeline(response, preprocessing_code)
-        logger.info("Pipeline serialized to {len(pipe_blob)} bytes")
+        logger.debug("Pipeline serialized to {len(pipe_blob)} bytes")
     except Exception as e:
         logger.error(f"Failed to build pipeline: {e}")
         raise e
 
-    # 4. Return response
     elapsed = time.time() - start_time
-    logger.info(f"Model Selection Agent finished after {elapsed:.2f} seconds. "
+    logger.info(f"[ModelAgent] Model Selection Agent finished after {elapsed:.2f} seconds. "
                 f"Selected model: {response.model_name}, hyperparameters: {response.hyperparameters}")
-    logger.info(f"Reasoning: {response.reasoning}")
+    logger.info(f"[ModelAgent] Reasoning: {response.reasoning}")
     return response, pipe_blob
 
 def _build_training_pipeline(response: ModelSelectionResponse, preprocessing_code: str) -> str:
@@ -170,19 +155,16 @@ def _build_training_pipeline(response: ModelSelectionResponse, preprocessing_cod
     serialize the sklearn pipeline.
     """
     try:
-        # Step 1: Decode and load the preprocessing pipeline
         preprocessing_blob = base64.b64decode(preprocessing_code)
         preprocessing_pipeline = sio.loads(preprocessing_blob)
 
         model = instantiate_model(response.model_name, response.hyperparameters)
 
-        # Step 3: Build full sklearn pipeline
         full_pipeline = Pipeline([
             ("preprocessing", preprocessing_pipeline),
             ("model", model)
         ])
 
-        # Step 4: Serialize and encode as base64 for transport
         serialized_pipeline = sio.dumps(full_pipeline)
         base64_pipeline = base64.b64encode(serialized_pipeline).decode("utf-8")
 

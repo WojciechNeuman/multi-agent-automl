@@ -17,6 +17,7 @@ help:
 	@echo "  make clean      - Remove __pycache__ and .pytest_cache"
 	@echo "  make install-frontend-deps - Install Node.js dependencies for the React frontend"
 	@echo "  make run-frontend - Start the React frontend development server"
+	@echo " make lint	   - Run ruff linter on the codebase"
 
 # Create Conda environment
 env:
@@ -53,3 +54,7 @@ test:
 clean:
 	find . -type d -name "__pycache__" -exec rm -r {} +
 	rm -rf .pytest_cache
+
+# Lint the Python code using ruff
+lint:
+	ruff check . --output-format=full --fix

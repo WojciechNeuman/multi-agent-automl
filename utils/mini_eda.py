@@ -32,7 +32,6 @@ def compute_basic_stats(
     Extracts rich feature statistics for LLM prompt building.
     Handles numeric, categorical, text, and datetime columns.
     """
-    logger.info(f"Computing basic stats for {df.shape[1]} features")
     stats = {}
     target = df[target_name] if target_name in df.columns else None
 
@@ -48,14 +47,12 @@ def compute_basic_stats(
             else "categorical"
         )
 
-        # Shared stats
         kw = dict(
             dtype=dtype,
             missing_pct=float(s.isna().mean()),
             cardinality=int(s.nunique(dropna=True)),
         )
 
-        # Numeric extensions
         if dtype == "numeric":
             kw.update(
                 mean=float(s.mean()),
@@ -67,7 +64,6 @@ def compute_basic_stats(
                 max_val=float(s.max()),
             )
 
-        # Categorical extensions
         elif dtype == "categorical":
             vc = s.value_counts(normalize=True)
             if not vc.empty:
@@ -76,20 +72,17 @@ def compute_basic_stats(
                     rare_pct=float((vc < 0.01).mean()),
                 )
 
-        # Text extensions
         elif dtype == "text":
             lengths = s.dropna().str.len()
             kw.update(
                 avg_length=float(lengths.mean()),
             )
 
-        # Date-time extensions
         elif dtype == "datetime":
             kw.update(
                 span_days=(s.max() - s.min()).days if not s.empty else None
             )
 
-        # Correlation (if target is provided and valid)
         if target is not None:
             corr = _quick_corr(s, target)
             if corr is not None:
@@ -98,6 +91,4 @@ def compute_basic_stats(
         stats[col] = FeatureOverview(**kw)
         logger.debug(f"Stats for {col}: {kw}")
 
-    logger.info(f"Basic stats computed for {len(stats)} features")
     return stats
-

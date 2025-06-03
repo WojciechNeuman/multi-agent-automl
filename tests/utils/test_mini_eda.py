@@ -1,8 +1,6 @@
 import unittest
 import pandas as pd
 from utils.mini_eda import compute_basic_stats
-from schemas.feature import FeatureOverview
-
 
 class TestMiniEDA(unittest.TestCase):
 

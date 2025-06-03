@@ -50,7 +50,7 @@
 
 - **Iterative workflow**: Agents pass summaries and recommendations to each other, learning from previous successes and failures.
 - **LLM**: Each agent uses an LLM for decision-making and explanations.
-- **Automatic best model selection**: After a set number of iterations, the model with the best metric (e.g., lowest MSE) is chosen.
+- **Automatic best model selection**: After a set number of iterations, the model with the best metric (e.g., lowest RMSE) is chosen.
 
 ---
 

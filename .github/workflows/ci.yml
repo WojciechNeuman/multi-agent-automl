@@ -28,6 +28,10 @@ jobs:
           conda run -n multi_agent_automl which pytest  # Verify pytest is installed
           conda run -n multi_agent_automl pytest --version  # Verify pytest version
 
+      - name: Run linter (ruff)
+        run: |
+          conda run -n multi_agent_automl ruff check . --output-format=full
+
       - name: Run tests
         run: |
           conda run -n multi_agent_automl pytest tests/ --maxfail=1 --disable-warnings -q  # Run the tests

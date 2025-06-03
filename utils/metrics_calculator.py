@@ -1,7 +1,7 @@
 from typing import Dict, Any, Literal
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
-    roc_auc_score, mean_squared_error, mean_absolute_error, r2_score
+    roc_auc_score, root_mean_squared_error, mean_absolute_error, r2_score
 )
 
 def calculate_metrics(
@@ -35,8 +35,8 @@ def calculate_metrics(
             except Exception:
                 pass
     elif problem_type == "regression":
-        metrics["train_mse"] = mean_squared_error(y_train_true, y_train_pred)
-        metrics["test_mse"] = mean_squared_error(y_test_true, y_test_pred)
+        metrics["train_rmse"] = root_mean_squared_error(y_train_true, y_train_pred)
+        metrics["test_rmse"] = root_mean_squared_error(y_test_true, y_test_pred)
         metrics["train_mae"] = mean_absolute_error(y_train_true, y_train_pred)
         metrics["test_mae"] = mean_absolute_error(y_test_true, y_test_pred)
         metrics["train_r2"] = r2_score(y_train_true, y_train_pred)

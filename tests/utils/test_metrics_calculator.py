@@ -42,13 +42,13 @@ class TestMetricsCalculator(unittest.TestCase):
             problem_type="regression"
         )
 
-        self.assertIn("train_mse", metrics)
-        self.assertIn("test_mse", metrics)
+        self.assertIn("train_rmse", metrics)
+        self.assertIn("test_rmse", metrics)
         self.assertIn("train_mae", metrics)
         self.assertIn("test_mae", metrics)
         self.assertIn("train_r2", metrics)
         self.assertIn("test_r2", metrics)
-        self.assertTrue(isinstance(metrics["train_mse"], float))
+        self.assertTrue(isinstance(metrics["train_rmse"], float))
         self.assertTrue(isinstance(metrics["test_r2"], float))
 
     def test_invalid_problem_type(self):
@@ -57,3 +57,4 @@ class TestMetricsCalculator(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+    

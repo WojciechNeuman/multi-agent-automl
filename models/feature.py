@@ -10,3 +10,4 @@ class FeatureSpec(BaseModel):
     transformer: str
     params: Dict[str, Any] = Field(default_factory=dict)
     importance: Optional[float] = None
+    

@@ -16,7 +16,6 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
 logger.remove()
-logger.add("logs/evaluation_agent.log", rotation="10 MB", retention="7 days", level="DEBUG")
 
 _SYSTEM_ROLE = (
     "You are a critical AutoML Evaluation Agent responsible for iterative improvement "
@@ -36,7 +35,7 @@ _SYSTEM_ROLE = (
 
     "Metric direction assumptions:\n"
     "- For classification: maximize accuracy, F1, recall, precision (higher is better)\n"
-    "- For regression: maximize R²; minimize MAE, MSE, RMSE (lower is better)\n\n"
+    "- For regression: maximize R²; minimize MAE, RMSE (lower is better)\n\n"
 
     "You MUST justify your recommendation clearly. Be brief, precise, and grounded in the provided metrics.\n\n"
 
@@ -135,8 +134,7 @@ def run_evaluation_agent(
     Main entry point for the EvaluationAgent.
     Builds the context, sends it to the LLM, and returns the decision.
     """
-    logger.info("Evaluation Agent started processing.")
-    logger.info(f"Running evaluation agent for dataset '{request.metadata.dataset_name}'")
+    logger.info("[EvaluationAgent] Starting evaluation process.")
     start_time = time.time()
 
     ctx = LLMRunContext(
@@ -148,14 +146,16 @@ def run_evaluation_agent(
         optimization_goal=optimization_goal
     )
     prompt = _build_prompt(ctx)
-    logger.info(f"Prompt length: {len(prompt)} characters")
+    logger.debug(f"Prompt length: {len(prompt)} characters")
     logger.debug(f"Prompt content:\n{prompt}")
 
     decision = _call_llm(prompt)
+    logger.info('[EvaluationAgent] Evaluation Agent received response successfully.')
+    logger.debug(f"LLM response:\n{decision}")
     elapsed = time.time() - start_time
-    logger.info(f"Evaluation Agent finished after {elapsed:.2f} seconds. "
+    logger.info(f"[EvaluationAgent] Evaluation Agent finished after {elapsed:.2f} seconds. "
                 f"Recommendation: {decision.recommendation}")
-    logger.info(f"Reasoning: {decision.reasoning}")
+    logger.info(f"[EvaluationAgent] Reasoning: {decision.reasoning}")
 
     return decision
 

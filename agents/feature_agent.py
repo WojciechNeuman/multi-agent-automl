@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 from typing import List
 import os
-import sys
 import instructor
 import base64
 import time
@@ -38,14 +37,8 @@ from utils.mini_eda import compute_basic_stats
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
-# Configure loguru (basic console + rotating file)
 logger.remove()
-logger.add("logs/feature_agent.log", rotation="10 MB", retention="7 days", level="DEBUG")
 
-
-# --------------------------------------------------------------------------- #
-# Pre-filters                                                                  #
-# --------------------------------------------------------------------------- #
 def _drop_constant_cols(df: pd.DataFrame) -> pd.DataFrame:
     """Remove columns with a single unique value (after NA drop)."""
     return df.loc[:, df.nunique(dropna=True) > 1]
@@ -68,10 +61,6 @@ def _mutual_info_topk(
     top_idx = np.argsort(mi)[::-1][:k]
     return x_num.columns[top_idx].tolist()
 
-
-# --------------------------------------------------------------------------- #
-# LLM helpers                                                                  #
-# --------------------------------------------------------------------------- #
 _SYSTEM_ROLE = (
     "You are a senior Feature Engineering Assistant. "
     "You will receive a compact description of a dataset's columns, "
@@ -107,7 +96,6 @@ _SYSTEM_ROLE = (
     "}"
 )
 
-
 def _build_prompt(
     req: FeatureSelectionRequest,
     stats: dict,
@@ -128,10 +116,8 @@ def _build_prompt(
     ]
 
     for col, meta in stats.items():
-        # Shared fields
         line = f"- {col}: type={meta.dtype}, miss={meta.missing_pct:.1%}, card={meta.cardinality}"
         
-        # Numeric extensions
         if meta.dtype == "numeric":
             line += (
                 f", mean={meta.mean:.2f}, median={meta.median:.2f}, "
@@ -139,13 +125,11 @@ def _build_prompt(
                 f"min={meta.min_val:.2f}, max={meta.max_val:.2f}"
             )
         
-        # Categorical extensions
         elif meta.dtype == "categorical":
             line += (
                 f", top_freq={meta.top_freq:.1%}, rare_pct={meta.rare_pct:.1%}"
             )
         
-        # Text extensions
         elif meta.dtype == "text":
             line += (
                 f", avg_length={meta.avg_length:.1f}"
@@ -153,16 +137,13 @@ def _build_prompt(
             if meta.lang_detected:
                 line += f", lang={meta.lang_detected}"
         
-        # Date-time extensions
         elif meta.dtype == "datetime":
             if meta.span_days is not None:
                 line += f", span_days={meta.span_days}"
 
-        # Correlation to target (if available)
         if meta.corr_target is not None:
             line += f", corr≈{meta.corr_target:.2f}"
         
-        # Add to output
         lines.append(line)
 
     df_full = pd.DataFrame.from_dict(req.data_sample)
@@ -213,66 +194,57 @@ def _call_llm(req: FeatureSelectionRequest, prompt: str, retries: int = 3) -> Fe
             if attempt == retries:
                 raise
 
-# --------------------------------------------------------------------------- #
-# Public API                                                                   #
-# --------------------------------------------------------------------------- #
 def run_feature_agent(req: FeatureSelectionRequest) -> FeatureSelectionResponse:
-    logger.info("Feature Agent started with default parameters: "
-                f"max_features={req.max_features}, selection_goal={getattr(req, 'selection_goal', None)}")
+    logger.info("[FeatureAgent] Starting feature selection process")
+    logger.info(
+        "[FeatureAgent] Feature Agent will try to choose the best possible parameters, it will choose "
+        f"maximum {req.max_features} features. Its goal is: {getattr(req, 'selection_goal', None)}"
+    )
     start_time = time.time()
 
-    logger.info(f"Processing request for dataset '{req.metadata.dataset_name}'")
+    logger.info(f"[FeatureAgent] Processing request for dataset '{req.metadata.dataset_name.split('_')[-1]}'")
 
-    # 1. Load and pre-filter sample
     df = pd.DataFrame.from_dict(req.data_sample)
     df = _drop_constant_cols(df)
     logger.debug(f"Dataframe shape after constant column drop: {df.shape}")
 
-    # 2. Stats (compute if missing)
     if not req.basic_stats:
-        logger.info("Computing basic stats...")
+        logger.debug("Computing basic stats...")
         stats = compute_basic_stats(df, target_name=req.metadata.target_column)
         logger.debug(f"Computed stats: {len(stats)} features")
     else:
         stats = req.basic_stats
 
-    # 3. Recommend top-MI features
     recommended = _mutual_info_topk(
         df, req.metadata.target_column, req.metadata.problem_type, k=10
     )
-    logger.info(f"Top MI-recommended features: {recommended}")
+    logger.debug(f"Top MI-recommended features: {recommended}")
 
-    # 4. Build prompt + call LLM
     prompt = _build_prompt(req, stats, recommended)
-    logger.info(f"Prompt length: {len(prompt)} characters")
+    logger.debug(f"Prompt length: {len(prompt)} characters")
     logger.debug(f"Prompt content:\n{prompt}")
 
     response = _call_llm(req, prompt)
-    logger.info("LLM response received successfully")
+    logger.info("[FeatureAgent] Feature Agent received response successfully")
     logger.debug(f"LLM response:\n{response}")
 
-    # 5. Build pipeline (simple baseline)
     try:
         pipe_blob = _build_pipeline_blob(df, response.selected_features)
-        logger.info(f"Pipeline serialized to {len(pipe_blob)} bytes")
+        logger.debug(f"Pipeline serialized to {len(pipe_blob)} bytes")
     except Exception as e:
-        logger.exception("Pipeline serialization failed")
+        logger.exception(f"Pipeline serialization failed with error: {e}")
         raise
 
-    # 6. Done
     elapsed = time.time() - start_time
-    logger.info(f"Feature Agent finished after {elapsed:.2f} seconds. "
+    logger.info(f"[FeatureAgent] Feature Agent finished after {elapsed:.2f} seconds. "
                 f"Selected features: {[f.name for f in response.selected_features]}")
-    logger.info(f"Reasoning: {response.reasoning}")
+    logger.info(f"[FeatureAgent] Feature Agent chose the above-mentioned features because: {response.reasoning}")
     return FeatureSelectionResponse(
         selected_features=response.selected_features,
         preprocessing_code=pipe_blob,
         reasoning=response.reasoning,
     )
 
-# --------------------------------------------------------------------------- #
-# Helpers – pipeline, reasoning                                               #
-# --------------------------------------------------------------------------- #
 def _build_pipeline_blob(df: pd.DataFrame, specs: List[FeatureSpec]) -> str:
     try:
         num_cols = [s.name for s in specs if s.dtype == "numeric" and s.name in df.columns]
@@ -293,12 +265,11 @@ def _build_pipeline_blob(df: pd.DataFrame, specs: List[FeatureSpec]) -> str:
             remainder="drop",
         )
 
-        # Serialize as a binary blob, then base64-encode for safe JSON transport
         binary_blob = sio.dumps(pipe)
         base64_blob = base64.b64encode(binary_blob).decode("ascii")
-        logger.info(f"Pipeline blob generated with {len(binary_blob)} bytes")
+        logger.debug(f"Pipeline blob generated with {len(binary_blob)} bytes")
         return base64_blob
 
     except Exception as e:
-        logger.exception("Failed to build pipeline blob")
+        logger.exception(f"Failed to build pipeline blob with error: {e}")
         raise
