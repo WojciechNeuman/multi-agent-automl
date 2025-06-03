@@ -26,29 +26,33 @@ _SYSTEM_ROLE = (
     "- selected features and model info,\n"
     "- optimization goal (e.g. maximize recall, avoid overfitting).\n\n"
 
-    "You must thoroughly analyze the situation with the following expectations:\n"
-    "1. If the model's test performance is low (e.g. F1, accuracy, recall < 0.70) OR the difference between training and test metrics exceeds 0.15–0.20, treat it as a clear sign of overfitting. In such cases, avoid recommending `continue`.\n"
-    "2. If performance is improving across iterations and the train/test gap remains small (e.g. ≤ 0.10), then `continue` may be justified — but only with a clear rationale.\n"
-    "3. If results stagnate, degrade, or the model repeatedly shows poor generalization (e.g. high variance between train/test), recommend `switch_model` or `switch_features` — depending on what is more likely to be the root cause.\n"
-    "4. `stop` should only be suggested when the model consistently performs well (e.g. test metrics ≥ 0.85) and no meaningful improvements have been observed over multiple iterations.\n"
-    "5. Never default to the first valid recommendation. Compare current performance with history, apply critical judgment, and base your decision on metric dynamics and optimization goals.\n\n"
+    "You must critically analyze the situation using **relative** and **absolute** evaluation. "
+    "The following expectations apply:\n"
+    "1. Treat any significant gap between train and test performance — regardless of absolute values — as a sign of overfitting. "
+    "For example, train = 0.07 and test = 0.04 **is overfitting**, as is train = 0.95 and test = 0.85.\n"
+    "2. Always be skeptical of `continue`. Recommend it **only** when:\n"
+    "   - performance is clearly improving **and**\n"
+    "   - the train/test gap is stable and ≤ 0.10 **and**\n"
+    "   - current test performance is above average (e.g. ≥ 0.75).\n"
+    "3. If performance is poor (e.g. F1, accuracy, recall < 0.70 or R² < 0.4), and no major overfitting is present, suggest trying **more complex models**.\n"
+    "4. If overfitting is consistent (train much higher than test), suggest `switch_model` or `switch_features`.\n"
+    "5. If the model has achieved consistently high performance (e.g. test ≥ 0.85) and shows diminishing improvements across iterations, `stop` may be justified.\n"
+    "6. Do not default to the safest or simplest option. Favor decisive, justified recommendations. `continue` is acceptable **only when strongly warranted**.\n\n"
 
     "Metric direction assumptions:\n"
     "- For classification: maximize accuracy, F1, recall, precision (higher is better)\n"
     "- For regression: maximize R²; minimize MAE, RMSE (lower is better)\n\n"
 
-    "You MUST justify your recommendation clearly. Be brief, precise, and grounded in the provided metrics.\n\n"
-
-    "Return your answer as a JSON object with the following fields:\n"
+    "Your answer must be a JSON object with the following fields:\n"
     "- recommendation: one of ['continue', 'switch_model', 'switch_features', 'stop']\n"
-    "- reasoning: a string (max 500 characters) justifying your decision\n"
+    "- reasoning: a string (max 1000 characters) justifying your decision\n"
     "- confidence: a number between 0 and 1 (optional, can be null)\n\n"
 
     "Example output:\n"
     "{\n"
     "  \"recommendation\": \"switch_model\",\n"
-    "  \"reasoning\": \"Test accuracy stagnates at ~0.64 while train is >0.9, suggesting overfitting. Switching model may help.\",\n"
-    "  \"confidence\": 0.82\n"
+    "  \"reasoning\": \"Test accuracy is low (0.64) and train-test gap (~0.3) suggests overfitting. A more robust model is needed.\",\n"
+    "  \"confidence\": 0.85\n"
     "}"
 )
 
@@ -101,7 +105,6 @@ def _call_llm(req: EvaluationRequest, prompt: str, retries: int = 3) -> Evaluati
     """
     for attempt in range(1, retries + 1):
         try:
-            logger.info(f'[EvaluationAgent] {req.llm_config.model}, {req.llm_config.temperature}, {req.llm_config.max_tokens}')
             client = instructor.from_openai(OpenAI(api_key=API_KEY))
             response = client.chat.completions.create(
                 model=req.llm_config.model,
@@ -174,7 +177,7 @@ def build_evaluation_conclusions(
     else:
         iteration_str = ""
     summary = (
-        f"{iteration_str}\n"
+        f"{iteration_str}"
         f"Features selected: {features_str}\n"
         f"Model: {model_name}\n"
         f"Hyperparameters: {hyperparams_str}\n"

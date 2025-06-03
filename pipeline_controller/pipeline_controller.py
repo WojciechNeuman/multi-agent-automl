@@ -179,6 +179,9 @@ class PipelineController:
             else:
                 evaluation_conclusions += "\n\n" + iteration_evaluation_conclusions
 
+            if iteration < self.max_iterations:
+                logger.debug(f"Evaluation conclusions after iteration {iteration}: {evaluation_conclusions}")
+
             metric_value = current_metrics.get(f"test_{self.main_metric}", None)
             self.models_results.append({
                 "metrics": current_metrics,
