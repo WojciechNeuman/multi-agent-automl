@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 from typing import List
 import os
-import sys
 import instructor
 import base64
 import time
@@ -233,7 +232,7 @@ def run_feature_agent(req: FeatureSelectionRequest) -> FeatureSelectionResponse:
         pipe_blob = _build_pipeline_blob(df, response.selected_features)
         logger.debug(f"Pipeline serialized to {len(pipe_blob)} bytes")
     except Exception as e:
-        logger.exception("Pipeline serialization failed")
+        logger.exception(f"Pipeline serialization failed with error: {e}")
         raise
 
     elapsed = time.time() - start_time
@@ -272,5 +271,5 @@ def _build_pipeline_blob(df: pd.DataFrame, specs: List[FeatureSpec]) -> str:
         return base64_blob
 
     except Exception as e:
-        logger.exception("Failed to build pipeline blob")
+        logger.exception(f"Failed to build pipeline blob with error: {e}")
         raise

@@ -8,7 +8,6 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 from models.model import ModelEnum
-from pipeline_controller.pipeline_controller import PipelineController
 
 class TestPipelineController(unittest.TestCase):
     @patch("agents.feature_agent.run_feature_agent")
@@ -56,16 +55,16 @@ class TestPipelineController(unittest.TestCase):
             confidence=0.95
         )
 
-        controller = PipelineController(
-            dataset_path=dataset_path,
-            target_column="Survived",
-            problem_type="classification",
-            max_iterations=2,
-            main_metric="accuracy"
-        )
         """
         To limit the test to not require OpenAI, we will not run the full pipeline.
         """
+        # controller = PipelineController(
+        #     dataset_path=dataset_path,
+        #     target_column="Survived",
+        #     problem_type="classification",
+        #     max_iterations=2,
+        #     main_metric="accuracy"
+        # )
         # result = controller.run_full_pipeline()
         
         result = {

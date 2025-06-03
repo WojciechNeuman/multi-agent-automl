@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import os
-import sys
-import json
 import base64
 import instructor
 from sklearn.pipeline import Pipeline
@@ -76,7 +74,7 @@ def _build_prompt(req: ModelSelectionRequest) -> str:
     logger.debug("Building the prompt for model selection.")
 
     lines = [
-        f"## Dataset Metadata",
+        "## Dataset Metadata",
         f"- Dataset Name: {req.metadata.dataset_name}",
         f"- Problem Type: {req.metadata.problem_type}",
         f"- Target Column: {req.metadata.target_column}",

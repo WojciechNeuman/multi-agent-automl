@@ -150,7 +150,7 @@ def run_evaluation_agent(
     logger.debug(f"Prompt content:\n{prompt}")
 
     decision = _call_llm(prompt)
-    logger.info(f'[EvaluationAgent] Evaluation Agent received response successfully.')
+    logger.info('[EvaluationAgent] Evaluation Agent received response successfully.')
     logger.debug(f"LLM response:\n{decision}")
     elapsed = time.time() - start_time
     logger.info(f"[EvaluationAgent] Evaluation Agent finished after {elapsed:.2f} seconds. "

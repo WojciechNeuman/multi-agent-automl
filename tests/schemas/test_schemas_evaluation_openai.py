@@ -4,7 +4,8 @@ from schemas.evaluation import EvaluationRequest, EvaluationResponse
 from schemas.shared import Metadata
 from models.feature import FeatureSpec
 from models.model import ModelEnum
-import sys, os
+import sys
+import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
