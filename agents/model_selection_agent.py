@@ -29,7 +29,6 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
 logger.remove()
-logger.add("logs/model_selection_agent.log", rotation="10 MB", retention="7 days", level="DEBUG")
 
 _SYSTEM_ROLE = (
     "You are a senior Model Selection Assistant. "

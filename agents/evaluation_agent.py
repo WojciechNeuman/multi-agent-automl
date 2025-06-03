@@ -16,7 +16,6 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
 logger.remove()
-logger.add("logs/evaluation_agent.log", rotation="10 MB", retention="7 days", level="DEBUG")
 
 _SYSTEM_ROLE = (
     "You are a critical AutoML Evaluation Agent responsible for iterative improvement "

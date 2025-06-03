@@ -38,10 +38,7 @@ from utils.mini_eda import compute_basic_stats
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
-# Configure loguru (basic console + rotating file)
 logger.remove()
-logger.add("logs/feature_agent.log", rotation="10 MB", retention="7 days", level="DEBUG")
-
 
 # --------------------------------------------------------------------------- #
 # Pre-filters                                                                  #

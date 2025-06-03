@@ -5,7 +5,6 @@ import skops.io as sio
 import pandas as pd
 from typing import Dict, List
 from loguru import logger
-import time
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -21,7 +20,8 @@ from sklearn.model_selection import train_test_split
 
 logger.remove()
 logger.add(sys.stderr, level="INFO")
-logger.add("logs/pipeline_controller.log", rotation="10 MB", retention="7 days", level="DEBUG")
+logger.info(" === Logging initialized for PipelineController. ===")
+logger.add("logs/pipeline_controller_{time:YYYY-MM-DD_HH-mm-ss}.log", rotation="10 MB", retention="7 days", level="DEBUG")
 
 class PipelineController:
     """
