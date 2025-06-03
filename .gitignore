@@ -179,6 +179,9 @@ cython_debug/
 # Ignore everything in datasets except .gitkeep
 datasets/*
 !datasets/.gitkeep
+!datasets/iris.csv
+!datasets/titanic.csv
+!datasets/warsaw_apartments.csv
 
 # Ignore VS workspace settings
 .vscode/
