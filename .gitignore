@@ -191,3 +191,7 @@ datasets/*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Temporary files and logs
+temp_*
+logs/

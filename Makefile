@@ -36,7 +36,7 @@ run:
 
 # Run Django server (from the web/ directory)
 run-server:
-	python web_multi_agent_automl/manage.py run-server
+	python web_multi_agent_automl/manage.py runserver
 
 # Install Node.js dependencies for the React frontend (assumes npm is installed)
 install-frontend-deps:

@@ -1,4 +1,3 @@
-# web_multi_agent_automl/pipeline_api/log_streaming.py
 import queue
 import time
 from django.http import StreamingHttpResponse
@@ -7,9 +6,9 @@ from django.http import StreamingHttpResponse
 # For a production app with multiple users/workers, you'd need a more robust solution
 # like Redis or a database, and proper cleanup mechanisms.
 # Key: run_id (str), Value: queue.Queue() for logs
-log_queues = {}
+log_queues: dict = {}
 # Key: run_id (str), Value: dict (pipeline result or error)
-pipeline_results_store = {}
+pipeline_results_store: dict = {}
 
 # Special message to signal the end of logs for a stream
 END_OF_LOGS_SIGNAL = "END_OF_LOGS_STREAM"

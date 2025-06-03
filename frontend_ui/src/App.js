@@ -1,192 +1,300 @@
-// frontend_ui/src/App.js
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import './App.css'; // We'll create this file next
+import './App.css';
+
+// Helper component to display metrics nicely
+const MetricsDisplay = ({ metrics }) => {
+    if (!metrics || typeof metrics !== 'object') {
+        return <p>No metrics data available.</p>;
+    }
+    return (
+        <ul className="metrics-list">
+            {Object.entries(metrics).map(([key, value]) => (
+                <li key={key}>
+                    <span className="metric-key">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:</span>
+                    <span className="metric-value">{typeof value === 'number' ? value.toFixed(4) : value}</span>
+                </li>
+            ))}
+        </ul>
+    );
+};
+
+// Helper component to display a list of items (like features)
+const ListDisplay = ({ items, title }) => {
+    if (!items || !Array.isArray(items) || items.length === 0) {
+        return <p>No {title.toLowerCase()} data available.</p>;
+    }
+    return (
+        <div className="list-display-container">
+            <h4>{title}:</h4>
+            <ul className="feature-list">
+                {items.map((item, index) => (
+                    <li key={index}>{item}</li>
+                ))}
+            </ul>
+        </div>
+    );
+};
+
 
 function App() {
-    // State for form inputs
+    // Form inputs
     const [csvFile, setCsvFile] = useState(null);
-    const [targetColumn, setTargetColumn] = useState('Survived'); // Default value
-    const [problemType, setProblemType] = useState('classification'); // Default value
-    const [maxIterations, setMaxIterations] = useState(3); // Default value
-    const [mainMetric, setMainMetric] = useState('accuracy'); // Default value
-
-    // State for API response
-    const [bestResult, setBestResult] = useState(null);
-    const [pipelineStructure, setPipelineStructure] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [targetColumn, setTargetColumn] = useState('Survived');
+    const [problemType, setProblemType] = useState('classification');
+    const [maxIterations, setMaxIterations] = useState(3);
+    const [mainMetric, setMainMetric] = useState('accuracy');
     const [fileName, setFileName] = useState('');
 
-    // Handle file input change
+    // Pipeline state
+    const [runId, setRunId] = useState(null);
+    const [isPipelineRunning, setIsPipelineRunning] = useState(false);
+    const [logs, setLogs] = useState([]);
+    const [error, setError] = useState('');
+    
+    // Results
+    const [bestResult, setBestResult] = useState(null);
+    const [pipelineStructure, setPipelineStructure] = useState('');
+
+    const eventSourceRef = useRef(null);
+    const logsEndRef = useRef(null);
+
+    useEffect(() => {
+        if (logsEndRef.current) {
+            logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+    }, [logs]);
+
+    const clearPreviousRunState = () => {
+        setLogs([]);
+        setError('');
+        setBestResult(null);
+        setPipelineStructure('');
+        setRunId(null);
+    };
+
     const handleFileChange = (event) => {
         const file = event.target.files[0];
         if (file) {
             setCsvFile(file);
-            setFileName(file.name); // Store file name for display
+            setFileName(file.name);
         } else {
             setCsvFile(null);
             setFileName('');
         }
     };
 
-    // Handle form submission
-    const handleSubmit = async (event) => {
-        event.preventDefault(); // Prevent default form submission
+    const fetchPipelineResults = async (currentRunId) => {
+        if (!currentRunId) return;
+        try {
+            setLogs(prev => [...prev, "Fetching final results..."]);
+            const resultApiUrl = `http://localhost:8000/api/pipeline-result/${currentRunId}/`;
+            const response = await axios.get(resultApiUrl);
 
+            if (response.data.status === 'completed') {
+                setBestResult(response.data.best_result);
+                setPipelineStructure(response.data.pipeline_structure);
+                setLogs(prev => [...prev, "Results received."]);
+                setError('');
+            } else if (response.data.status === 'failed') {
+                setError(`Pipeline failed: ${response.data.error || 'Unknown error'}`);
+                setLogs(prev => [...prev, `Pipeline failed: ${response.data.error || 'Unknown error'}`]);
+            } else {
+                 setError(`Unknown status from result endpoint: ${response.data.status}`);
+            }
+        } catch (err) {
+            const errorMessage = err.response?.data?.error || err.message || 'Could not fetch pipeline results.';
+            setError(`Error fetching results: ${errorMessage}`);
+            setLogs(prev => [...prev, `Error fetching results: ${errorMessage}`]);
+        } finally {
+            setIsPipelineRunning(false);
+        }
+    };
+
+    useEffect(() => {
+        if (runId && isPipelineRunning) {
+            const logStreamUrl = `http://localhost:8000/api/log-stream/${runId}/`;
+            eventSourceRef.current = new EventSource(logStreamUrl);
+            setLogs(prev => [...prev, `Connecting to log stream for run ID: ${runId}`]);
+
+            eventSourceRef.current.onmessage = (event) => {
+                setLogs(prevLogs => [...prevLogs, event.data]);
+            };
+
+            eventSourceRef.current.addEventListener('end', (event) => {
+                setLogs(prevLogs => [...prevLogs, "Log stream ended by server."]);
+                if (eventSourceRef.current) {
+                    eventSourceRef.current.close();
+                    eventSourceRef.current = null;
+                }
+                fetchPipelineResults(runId);
+            });
+            
+            eventSourceRef.current.addEventListener('error', (event) => {
+                if (eventSourceRef.current && eventSourceRef.current.readyState === EventSource.CLOSED) {
+                    setLogs(prevLogs => [...prevLogs, "Log stream connection closed."]);
+                } else if (event.target.readyState === EventSource.CONNECTING) {
+                     setLogs(prevLogs => [...prevLogs, "Reconnecting to log stream... (If this persists, check server)"]);
+                } else {
+                    setLogs(prevLogs => [...prevLogs, "Error with log stream. Closing connection."]);
+                    console.error('EventSource failed:', event);
+                    if (eventSourceRef.current) {
+                        eventSourceRef.current.close();
+                        eventSourceRef.current = null;
+                    }
+                    setError("Log stream error. Attempting to fetch results if possible.");
+                    fetchPipelineResults(runId); 
+                }
+            });
+        } else {
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+                eventSourceRef.current = null;
+                // setLogs(prev => [...prev, "Log stream disconnected."]); // Can be noisy
+            }
+        }
+        return () => {
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+                eventSourceRef.current = null;
+            }
+        };
+    }, [runId, isPipelineRunning]);
+
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
         if (!csvFile) {
-            setError('Please select a CSV file to upload.');
+            setError('Please select a CSV file.');
             return;
         }
+        clearPreviousRunState();
+        setIsPipelineRunning(true);
 
-        setIsLoading(true);
-        setError('');
-        setBestResult(null);
-        setPipelineStructure('');
-
-        // Create FormData object to send file and other data
-        const formData = new FormData();
-        formData.append('csv_file', csvFile);
-        formData.append('target_column', targetColumn);
-        formData.append('problem_type', problemType);
-        formData.append('max_iterations', maxIterations);
-        formData.append('main_metric', mainMetric);
+        const formDataObj = new FormData();
+        formDataObj.append('csv_file', csvFile);
+        formDataObj.append('target_column', targetColumn);
+        formDataObj.append('problem_type', problemType);
+        formDataObj.append('max_iterations', maxIterations);
+        formDataObj.append('main_metric', mainMetric);
 
         try {
-            // API endpoint URL (ensure your Django server is running and accessible)
-            const apiUrl = 'http://localhost:8000/api/run-pipeline/';
-            const response = await axios.post(apiUrl, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data', // Important for file uploads
-                },
+            const startApiUrl = 'http://localhost:8000/api/start-pipeline/';
+            const response = await axios.post(startApiUrl, formDataObj, {
+                headers: { 'Content-Type': 'multipart/form-data' },
             });
-
-            // Set results from the API response
-            setBestResult(response.data.best_result);
-            setPipelineStructure(response.data.pipeline_structure);
-
+            if (response.data.run_id && response.data.status === 'started') {
+                setRunId(response.data.run_id);
+            } else {
+                setError(response.data.error || 'Failed to start pipeline.');
+                setIsPipelineRunning(false);
+            }
         } catch (err) {
-            // Handle errors from the API call
-            const errorMessage = err.response?.data?.error || err.message || 'An unknown error occurred during the pipeline execution.';
-            setError(`Error: ${errorMessage}`);
-            console.error("Pipeline execution error:", err);
-        } finally {
-            setIsLoading(false);
+            const errorMessage = err.response?.data?.error || err.message || 'Could not start pipeline execution.';
+            setError(`Error starting pipeline: ${errorMessage}`);
+            setIsPipelineRunning(false);
         }
     };
 
     return (
         <div className="App">
             <header className="App-header">
-                <h1>Multiagent AutoML</h1>
-                <p>Upload your dataset and configure the pipeline parameters.</p>
+                <h1>AutoML Pipeline Interface</h1>
+                <p>Upload your dataset and configure the pipeline parameters for real-time logging.</p>
             </header>
 
             <main className="App-main">
                 <form onSubmit={handleSubmit} className="pipeline-form">
-                    {/* File Upload */}
-                    <div className="form-group">
+                     <div className="form-group">
                         <label htmlFor="csvFile">Upload CSV File:</label>
-                        <input
-                            type="file"
-                            id="csvFile"
-                            accept=".csv"
-                            onChange={handleFileChange}
-                            required
-                        />
+                        <input type="file" id="csvFile" accept=".csv" onChange={handleFileChange} disabled={isPipelineRunning} required />
                         {fileName && <span className="file-name-display">Selected file: {fileName}</span>}
                     </div>
-
-                    {/* Target Column Input */}
                     <div className="form-group">
                         <label htmlFor="targetColumn">Target Column Name:</label>
-                        <input
-                            type="text"
-                            id="targetColumn"
-                            value={targetColumn}
-                            onChange={(e) => setTargetColumn(e.target.value)}
-                            placeholder="e.g., Survived"
-                            required
-                        />
+                        <input type="text" id="targetColumn" value={targetColumn} onChange={(e) => setTargetColumn(e.target.value)} disabled={isPipelineRunning} placeholder="e.g., Survived" required />
                     </div>
-
-                    {/* Problem Type Dropdown */}
                     <div className="form-group">
                         <label htmlFor="problemType">Problem Type:</label>
-                        <select id="problemType" value={problemType} onChange={(e) => setProblemType(e.target.value)}>
+                        <select id="problemType" value={problemType} onChange={(e) => setProblemType(e.target.value)} disabled={isPipelineRunning}>
                             <option value="classification">Classification</option>
                             <option value="regression">Regression</option>
-                            {/* Add other problem types if your backend supports them */}
                         </select>
                     </div>
-
-                    {/* Max Iterations Dropdown */}
                     <div className="form-group">
                         <label htmlFor="maxIterations">Max Iterations:</label>
-                        <select id="maxIterations" value={maxIterations} onChange={(e) => setMaxIterations(parseInt(e.target.value))}>
-                            <option value={1}>1</option>
-                            <option value={2}>2</option>
-                            <option value={3}>3</option>
-                            <option value={5}>5</option>
-                            <option value={10}>10</option>
-                            <option value={20}>20</option>
+                        <select id="maxIterations" value={maxIterations} onChange={(e) => setMaxIterations(parseInt(e.target.value))} disabled={isPipelineRunning}>
+                            <option value={1}>1</option><option value={2}>2</option><option value={3}>3</option><option value={5}>5</option><option value={10}>10</option><option value={20}>20</option>
                         </select>
                     </div>
-
-                    {/* Main Metric Dropdown */}
                     <div className="form-group">
                         <label htmlFor="mainMetric">Main Metric:</label>
-                        <select id="mainMetric" value={mainMetric} onChange={(e) => setMainMetric(e.target.value)}>
-                            {/* Common metrics */}
-                            <option value="accuracy">Accuracy</option>
-                            <option value="precision">Precision</option>
-                            <option value="recall">Recall</option>
-                            <option value="f1_score">F1-score</option>
-                            <option value="roc_auc">ROC AUC</option>
-                            {/* Regression specific metrics */}
-                            <option value="mse">MSE (Mean Squared Error)</option>
-                            <option value="mae">MAE (Mean Absolute Error)</option>
-                            <option value="r2_score">R2 Score</option>
-                            {/* Add other metrics as supported by your backend */}
+                        <select id="mainMetric" value={mainMetric} onChange={(e) => setMainMetric(e.target.value)} disabled={isPipelineRunning}>
+                            <option value="accuracy">Accuracy</option><option value="precision">Precision</option><option value="recall">Recall</option><option value="f1_score">F1-score</option><option value="roc_auc">ROC AUC</option>
+                            <option value="mse">MSE (for regression)</option><option value="mae">MAE (for regression)</option><option value="r2_score">R2 Score</option>
                         </select>
                     </div>
-
-                    <button type="submit" disabled={isLoading} className="submit-button">
-                        {isLoading ? '🧠 Processing Pipeline...' : '🚀 Run Pipeline'}
+                    <button type="submit" disabled={isPipelineRunning} className="submit-button">
+                        {isPipelineRunning ? '🧠 Processing Pipeline...' : '🚀 Run Pipeline'}
                     </button>
                 </form>
 
-                {/* Display Error Messages */}
-                {error && (
-                    <div className="error-message">
-                        <p>{error}</p>
+                {error && <div className="error-message"><p>{error}</p></div>}
+
+                {(logs.length > 0 || isPipelineRunning) && (
+                    <div className="logs-section results-section">
+                        <h2>Pipeline Logs</h2>
+                        <pre className="logs-output results-output">
+                            {logs.join('\n')}
+                            <div ref={logsEndRef} />
+                        </pre>
                     </div>
                 )}
 
-                {/* Display Loading State */}
-                {isLoading && (
-                    <div className="loading-indicator">
-                        <p>Pipeline is running, please wait...</p>
-                        {/* You can add a spinner or a more visual loading indicator here */}
+                {!isPipelineRunning && bestResult && (
+                    <div className="results-section best-result-details"> {/* Added specific class */}
+                        <h2>Best Result</h2>
+                        <div className="result-content-padding"> {/* Added padding wrapper */}
+                            <p><strong>Model:</strong> {bestResult.model_name || 'N/A'}</p>
+                            
+                            {bestResult.hyperparameters && Object.keys(bestResult.hyperparameters).length > 0 && (
+                                <div className="hyperparameters-display">
+                                    <h4>Hyperparameters:</h4>
+                                    <pre className="nested-json-display">
+                                        {JSON.stringify(bestResult.hyperparameters, null, 2)}
+                                    </pre>
+                                </div>
+                            )}
+                             {bestResult.hyperparameters && Object.keys(bestResult.hyperparameters).length === 0 && (
+                                <p><strong>Hyperparameters:</strong> Default or N/A</p>
+                            )}
+
+
+                            {bestResult.metrics && <MetricsDisplay metrics={bestResult.metrics} />}
+                            
+                            {bestResult.features && <ListDisplay items={bestResult.features} title="Selected Features" />}
+
+                            {bestResult.reasoning && (
+                                <div className="reasoning-display">
+                                    <h4>Reasoning:</h4>
+                                    <p>{bestResult.reasoning}</p>
+                                </div>
+                            )}
+                            {bestResult.recommendation && <p><strong>Recommendation:</strong> {bestResult.recommendation}</p>}
+                        </div>
                     </div>
                 )}
 
-                {/* Display Results */}
-                {!isLoading && bestResult && (
-                    <div className="results-section">
-                        <h2>🏆 Best Result:</h2>
-                        <pre className="results-output">{JSON.stringify(bestResult, null, 2)}</pre>
-                    </div>
-                )}
-
-                {!isLoading && pipelineStructure && (
-                    <div className="results-section">
-                        <h2>🛠️ Pipeline Structure:</h2>
-                        <pre className="results-output">{pipelineStructure}</pre>
+                {!isPipelineRunning && pipelineStructure && (
+                    <div className="results-section pipeline-structure-details"> {/* Added specific class */}
+                        <h2>Pipeline Structure</h2>
+                        {/* The <pre> tag is good for scikit-learn's default pipeline string representation */}
+                        <pre className="results-output pipeline-structure-output">
+                            {pipelineStructure}
+                        </pre>
                     </div>
                 )}
             </main>
-
             <footer className="App-footer">
                 <p>&copy; {new Date().getFullYear()} Multi-Agent AutoML Project</p>
             </footer>

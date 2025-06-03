@@ -1,12 +1,26 @@
-/* frontend_ui/src/App.css */
+/* frontend_ui/src/App.css - Purple Theme */
+
+/* Define Color Palette as CSS Custom Properties */
+:root {
+  --dark-purple: #2D1B4D;    /* Deep, dark purple for backgrounds */
+  --mid-purple: #4A2F7C;     /* A slightly lighter purple for secondary elements */
+  --light-purple: #7F5AF0;   /* Vibrant purple for accents and interactive elements */
+  --text-white: #FFFFFF;
+  --text-gray-light: #E0E0E0; /* Text */
+  --bg-output-area: #1F133A;  /* Logs and chats */
+  --border-color-light: #4A2F7C; /* Mid-purple for borders */
+  --error-bg: #5c2323; /* Error background */
+  --error-text: #ffc6c6; /* Error text */
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f4f7f6;
-  color: #333;
+  background-color: var(--dark-purple); /* Main page background */
+  color: var(--text-gray-light); /* Default text color */
   line-height: 1.6;
   margin: 0;
   padding: 0;
@@ -16,25 +30,25 @@ body {
   max-width: 900px;
   margin: 20px auto;
   padding: 20px;
-  background-color: #fff;
+  background-color: var(--mid-purple); /* Main app container background */
   border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.2);
 }
 
 .App-header {
   text-align: center;
   padding-bottom: 20px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color-light);
   margin-bottom: 30px;
 }
 
 .App-header h1 {
-  color: #2c3e50;
+  color: var(--text-white);
   margin-bottom: 5px;
 }
 
 .App-header p {
-  color: #555;
+  color: var(--text-gray-light);
   font-size: 0.95em;
 }
 
@@ -50,7 +64,7 @@ body {
   display: block;
   font-weight: 600;
   margin-bottom: 8px;
-  color: #34495e;
+  color: var(--text-gray-light);
 }
 
 .pipeline-form input[type="text"],
@@ -58,36 +72,56 @@ body {
 .pipeline-form select {
   width: 100%;
   padding: 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color-light);
+  background-color: var(--dark-purple); /* Input background */
+  color: var(--text-white); /* Input text color */
   border-radius: 6px;
   box-sizing: border-box;
   font-size: 1em;
   transition: border-color 0.2s ease-in-out;
 }
+.pipeline-form input[type="text"]::placeholder {
+    color: var(--text-gray-light);
+    opacity: 0.7;
+}
+
 
 .pipeline-form input[type="file"] {
-  padding: 8px; /* Specific padding for file input */
+  padding: 8px;
+}
+/* Style for file input button */
+.pipeline-form input[type="file"]::-webkit-file-upload-button {
+  background-color: var(--light-purple);
+  color: var(--text-white);
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.pipeline-form input[type="file"]::-webkit-file-upload-button:hover {
+  background-color: var(--mid-purple);
 }
 
 
 .pipeline-form input[type="text"]:focus,
 .pipeline-form input[type="file"]:focus,
 .pipeline-form select:focus {
-  border-color: #3498db;
+  border-color: var(--light-purple);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+  box-shadow: 0 0 0 2px rgba(127, 90, 240, 0.3); /* Light purple focus ring */
 }
 
 .file-name-display {
   display: block;
   font-size: 0.85em;
-  color: #7f8c8d;
+  color: var(--text-gray-light);
   margin-top: 5px;
 }
 
 .submit-button {
-  background-color: #3498db;
-  color: white;
+  background-color: var(--light-purple);
+  color: var(--text-white);
   padding: 12px 20px;
   border: none;
   border-radius: 6px;
@@ -100,18 +134,20 @@ body {
 }
 
 .submit-button:hover {
-  background-color: #2980b9;
+  background-color: var(--mid-purple); /* Darken on hover */
 }
 
 .submit-button:disabled {
-  background-color: #bdc3c7;
+  background-color: var(--border-color-light); /* Use a less vibrant purple for disabled */
+  color: var(--text-gray-light);
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
 .error-message {
-  background-color: #ffebee;
-  color: #c62828;
-  border: 1px solid #e57373;
+  background-color: var(--error-bg);
+  color: var(--error-text);
+  border: 1px solid var(--light-purple); /* Accent border */
   padding: 15px;
   border-radius: 6px;
   margin-top: 20px;
@@ -122,42 +158,165 @@ body {
   text-align: center;
   padding: 20px;
   font-size: 1.1em;
-  color: #2980b9;
+  color: var(--light-purple);
 }
 
 .results-section {
   margin-top: 30px;
-  padding: 20px;
-  background-color: #ecf0f1;
-  border: 1px solid #dadedf;
-  border-radius: 6px;
+  padding: 0; 
+  background-color: var(--mid-purple); /* Section background */
+  border: 1px solid var(--border-color-light); 
+  border-radius: 8px; 
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
 }
 
 .results-section h2 {
-  color: #2c3e50;
+  font-family: 'Segoe UI', 'Roboto', sans-serif; 
+  font-size: 1.1em; 
+  font-weight: 600; 
+  color: var(--text-white); /* Caption text color */
+  background-color: var(--dark-purple); /* Header background */
+  padding: 12px 20px; 
   margin-top: 0;
-  margin-bottom: 15px;
-  border-bottom: 1px solid #bdc3c7;
-  padding-bottom: 10px;
+  margin-bottom: 0; 
+  border-bottom: 1px solid var(--border-color-light); /* Separator line */
+  border-top-left-radius: 8px; 
+  border-top-right-radius: 8px; 
+  display: flex; 
+  align-items: center; 
 }
 
-.results-output {
-  background-color: #34495e; /* Darker background for code/json */
-  color: #ecf0f1; /* Light text */
-  padding: 15px;
-  border-radius: 4px;
-  overflow-x: auto; /* Allow horizontal scrolling for long lines */
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.9em;
-  white-space: pre-wrap; /* Wrap long lines but preserve formatting */
-  word-break: break-all;
+.results-section h2::before {
+  margin-right: 10px;
+  font-size: 1.2em; 
+  line-height: 1;
+  color: var(--light-purple); /* Icon color */
 }
+
+.logs-section h2::before {
+  content: '📝'; 
+}
+
+.best-result-details h2::before {
+  content: '🏆'; 
+}
+
+.pipeline-structure-details h2::before {
+  content: '🛠️'; 
+}
+
+
+.results-output { /* Base for pre tags */
+  background-color: var(--bg-output-area); /* Darkest purple for code/log background */
+  color: var(--text-gray-light); /* Light gray text for readability */
+  padding: 15px 20px; 
+  border-radius: 0 0 8px 8px; 
+  overflow-x: auto;
+  font-family: 'SF Mono', 'Courier New', Courier, monospace; /* Monospaced font */
+  font-size: 0.9em;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin-top: 0; 
+  line-height: 1.5;
+}
+
+.logs-output { /* Specific to logs pre tag */
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.result-content-padding { /* For content inside Best Result section */
+  padding: 15px 20px; 
+  background-color: var(--mid-purple); /* Matches section background */
+  border-bottom-left-radius: 8px; 
+  border-bottom-right-radius: 8px; 
+  color: var(--text-gray-light);
+}
+
+.result-content-padding p,
+.result-content-padding h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: var(--text-gray-light);
+}
+.result-content-padding h4 {
+  margin-top: 15px;
+  font-size: 1em;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color-light);
+  padding-bottom: 5px;
+  color: var(--text-white); /* Make subheadings white */
+}
+.result-content-padding p strong {
+  font-weight: 600;
+  color: var(--text-white);
+}
+
+.metrics-list {
+  list-style-type: none;
+  padding-left: 0;
+  margin-bottom: 15px;
+}
+.metrics-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px dotted var(--border-color-light);
+  font-size: 0.95em;
+}
+.metrics-list li:last-child {
+  border-bottom: none;
+}
+.metric-key {
+  font-weight: 500;
+  color: var(--text-gray-light);
+  margin-right: 10px;
+}
+.metric-value {
+  font-weight: 600;
+  color: var(--light-purple); /* Accent for metric values */
+}
+
+.feature-list {
+  list-style-type: none;
+  padding-left: 0;
+  columns: 2; 
+  column-gap: 20px;
+}
+.feature-list li {
+  background-color: var(--dark-purple); /* Darker background for feature pills */
+  padding: 5px 10px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  font-size: 0.9em;
+  color: var(--text-gray-light);
+  border: 1px solid var(--border-color-light);
+}
+
+.hyperparameters-display .nested-json-display,
+.pipeline-structure-output {
+  background-color: var(--bg-output-area);
+  color: var(--text-gray-light);
+  padding: 10px 15px;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Courier New', Courier, monospace;
+  font-size: 0.85em;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border: 1px solid var(--border-color-light);
+}
+.pipeline-structure-output {
+    border-radius: 0 0 8px 8px; 
+    margin-top: 0;
+}
+
 
 .App-footer {
   text-align: center;
   margin-top: 40px;
   padding-top: 20px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border-color-light);
   font-size: 0.9em;
-  color: #7f8c8d;
+  color: var(--text-gray-light);
+  opacity: 0.8;
 }
