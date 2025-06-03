@@ -128,7 +128,7 @@ class PipelineController:
     
     def is_better(self, new_value: float, best_value: float) -> bool:
         minimize_metrics = {"mae", "mse", "rmse"}
-        maximize_metrics = {"accuracy", "f1", "precision", "recall", "r2"}
+        maximize_metrics = {"accuracy", "f1", "precision", "recall", "r2", "f1_score"}
 
         metric = self.main_metric.lower()
         if metric in minimize_metrics:
@@ -163,7 +163,6 @@ class PipelineController:
             current_metrics = self.train_and_evaluate()
             logger.info(f"[Training] Metrics: {current_metrics}")
 
-            logger.info("[EvaluationAgent] Starting evaluation...")
             decision = self.run_evaluation(current_metrics)
 
             iteration_evaluation_conclusions = build_evaluation_conclusions(
