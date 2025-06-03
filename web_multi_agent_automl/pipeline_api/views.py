@@ -42,6 +42,7 @@ def run_pipeline_background_logic(run_id, dataset_file_path, target_column, prob
         )
         best_result_data = controller.run_full_pipeline()
         pipeline_structure_string = str(controller.pipeline)
+        pipeline_structure_string = "\n".join(line.replace("    ", " ") for line in pipeline_structure_string.splitlines())
 
         if hasattr(best_result_data.get('model_name'), 'value'):
             best_result_data['model_name'] = best_result_data['model_name'].value
