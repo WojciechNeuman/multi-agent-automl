@@ -149,7 +149,9 @@ The app will be available at [http://localhost:3000](http://localhost:3000).
 2. **Add your OpenAI key to `.env`**
    ```
    API_KEY=sk-...
+   DJANGO_DEBUG=true
    ```
+   Outside debug mode also set `DJANGO_SECRET_KEY` and `DJANGO_ALLOWED_HOSTS`.
 
 3. **Run the backend (Django) server**
    ```bash
