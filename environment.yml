@@ -23,5 +23,5 @@ dependencies:
       - instructor
       - python_dotenv
       - skops
-      - ruff
+      - ruff==0.12.0
       
